@@ -200,3 +200,5 @@ pytest backend/tests/ -v
 - [`docs/ASSUMPTIONS_AND_LIMITATIONS.md`](file:///c:/Users/manda/FusionProjects/Cohortly/docs/ASSUMPTIONS_AND_LIMITATIONS.md): Documented edge cases, design decisions, and demo boundaries.
 - [`AI_USAGE.md`](file:///c:/Users/manda/FusionProjects/Cohortly/AI_USAGE.md): Transparent disclosure of AI acceleration and human engineering modifications.
 - [`prompt-history/prompts.jsonl`](file:///c:/Users/manda/FusionProjects/Cohortly/prompt-history/prompts.jsonl): Chronological JSONL log of all engineering prompts.
+#   c o h o r t l y  
+ 
