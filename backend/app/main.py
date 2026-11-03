@@ -38,6 +38,26 @@ async def demo_role_middleware(request: Request, call_next):
     return response
 
 
+# Include API Routers
+from backend.app.api.dashboard import router as dashboard_router
+from backend.app.api.learners import router as learners_router
+from backend.app.api.courses import router as courses_router
+from backend.app.api.cohorts import router as cohorts_router
+from backend.app.api.assessments import router as assessments_router
+from backend.app.api.analytics import router as analytics_router
+from backend.app.api.exceptions import router as exceptions_router
+from backend.app.api.data import router as data_router
+
+app.include_router(dashboard_router)
+app.include_router(learners_router)
+app.include_router(courses_router)
+app.include_router(cohorts_router)
+app.include_router(assessments_router)
+app.include_router(analytics_router)
+app.include_router(exceptions_router)
+app.include_router(data_router)
+
+
 @app.get("/api/health", tags=["System"])
 async def health_check():
     """System health check and diagnostic connectivity endpoint."""

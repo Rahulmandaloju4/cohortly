@@ -25,3 +25,13 @@ def is_timezone_date_consistent(dt_utc: datetime, tz_name: str, stored_date: dat
     """Returns True if stored_date matches the correctly derived local date for dt_utc in tz_name."""
     derived = derive_local_date_from_utc(dt_utc, tz_name)
     return derived == stored_date
+
+
+def get_iso_week_bounds(target_date: date) -> Tuple[datetime, datetime]:
+    """Returns (start_utc, end_utc) for the ISO week containing target_date."""
+    from datetime import timedelta
+    start_date = target_date - timedelta(days=target_date.weekday())
+    end_date = start_date + timedelta(days=7)
+    start_utc = datetime.combine(start_date, datetime.min.time())
+    end_utc = datetime.combine(end_date, datetime.min.time())
+    return start_utc, end_utc
