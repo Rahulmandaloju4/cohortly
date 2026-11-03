@@ -34,7 +34,7 @@ Recalculating completion status must never overwrite existing rows:
 
 ### RULE-EVENT-002: Potential Near-Duplicate Classification
 - Events from the same `(learner_id, course_id, content_id, event_type, session_id)` occurring within $|t_1 - t_2| \le 5.0\text{ seconds}$ are flagged as `potential_near_duplicate`.
-- They are not deleted automatically; they are cataloged in the exceptions ledger for audit.
+- **Analytics Inclusion Policy**: They are **NOT** automatically excluded from engagement metrics; they remain active in engagement analytics as candidates for investigation, preventing false negatives on rapid legitimate interactions (e.g. video scrub, rapid next clicks). They are cataloged in the exceptions ledger for investigator review and only removed if explicitly resolved as `CONFIRMED_DUPLICATE`.
 
 ### RULE-EVENT-003: Ingestion vs Occurrence Timing
 - `ingestion_timestamp >= event_timestamp_utc` must always hold.
@@ -43,6 +43,14 @@ Recalculating completion status must never overwrite existing rows:
 ### RULE-EVENT-004: Post-Completion Activity
 - Activity occurring after `enrollment.completed_at` is classified as legitimate post-completion review.
 - It is excluded from completion-rule requirements but tracked in lifelong learning analytics.
+
+### RULE-STATE-001: Append-Only State Transition History
+- Every lifecycle state transition must create an immutable record in `state_history`:
+  - Enrollment transitions (`ACTIVE` -> `COMPLETED`, `ACTIVE` -> `DROPPED`, `ACTIVE` -> `PAUSED`).
+  - Exception resolution transitions (`OPEN` -> `INVESTIGATING` -> `RESOLVED` / `FALSE_POSITIVE`).
+  - Outcome calculation transitions.
+- Records in `state_history` must **never** be overwritten or deleted.
+- Current-state columns (`enrollments.enrollment_status`, `exceptions.resolution_status`) are maintained simultaneously for indexed query performance.
 
 ---
 
@@ -109,5 +117,11 @@ Cohortly recognizes 5 primary roles:
 | **`SUPPORT_STAFF`** | Read learner issues, inactive learners, anomaly alerts | Triage exceptions (`INVESTIGATING`, `RESOLVED`, `FALSE_POSITIVE`) |
 | **`PLATFORM_ADMIN`** | Unrestricted system-wide access | Run synthetic generator, run validation audit, manage schemas |
 
-- **Header Contract**: Client requests transmit role context via `X-Demo-Role`.
+- **Header Contract**: Client requests transmit role context via `X-Demo-Role` (e.g. `LEARNER`, `INSTRUCTOR`, `ACADEMIC_ADMIN`, `SUPPORT_STAFF`, `PLATFORM_ADMIN`).
 - **Authorization Enforcement**: FastAPI dependencies verify permissions per route and raise `HTTP 403 Forbidden` on violations.
+
+> [!CAUTION]
+> **Demonstration Architecture Disclaimer & Limitations**:
+> `X-Demo-Role` is strictly a demonstration mechanism allowing evaluation of multi-persona views and server-side RBAC validation without requiring complex external OAuth/SSO credentials in an offline coding challenge.
+> - **Limitations**: It does NOT provide cryptographic signature verification, session token issuance, password salting, or token revocation.
+> - **Production Roadmap**: In a production enterprise deployment, `X-Demo-Role` must be replaced by OAuth2 / OpenID Connect (OIDC) Bearer JWT tokens, signed by an identity provider (e.g., Okta, Auth0, or Keycloak) with role claims verified cryptographically.

@@ -185,6 +185,19 @@ CREATE TABLE IF NOT EXISTS exceptions (
     recommended_action TEXT NOT NULL,
     resolution_status VARCHAR(20) NOT NULL DEFAULT 'OPEN' CHECK (resolution_status IN ('OPEN', 'INVESTIGATING', 'RESOLVED', 'FALSE_POSITIVE'))
 );
+
+-- 13. State History (Append-Only Audit Ledger)
+CREATE TABLE IF NOT EXISTS state_history (
+    history_id VARCHAR(32) PRIMARY KEY,
+    entity_type VARCHAR(32) NOT NULL CHECK (entity_type IN ('ENROLLMENT', 'EXCEPTION', 'COURSE_OUTCOME')),
+    entity_id VARCHAR(96) NOT NULL,
+    previous_state VARCHAR(64) NULL,
+    new_state VARCHAR(64) NOT NULL,
+    changed_at TIMESTAMP NOT NULL,
+    actor_role VARCHAR(32) NOT NULL,
+    actor_id VARCHAR(64) NULL,
+    reason TEXT NOT NULL
+);
 ```
 
 ---
@@ -239,4 +252,8 @@ CREATE INDEX IF NOT EXISTS ix_outcomes_calculated ON course_outcomes (calculated
 -- Exceptions
 CREATE INDEX IF NOT EXISTS ix_exceptions_severity_status ON exceptions (severity, resolution_status);
 CREATE INDEX IF NOT EXISTS ix_exceptions_entity ON exceptions (entity_type, entity_id);
+
+-- State History
+CREATE INDEX IF NOT EXISTS ix_state_history_entity ON state_history (entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS ix_state_history_changed ON state_history (changed_at);
 ```

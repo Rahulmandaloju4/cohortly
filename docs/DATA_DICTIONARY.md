@@ -211,3 +211,20 @@ Operational store of detected data quality issues and anomalies.
 | `relevant_rule` | VARCHAR(128) | NOT NULL | Business rule reference | `RULE-INTEGRITY-001: Enrollment Relationship Integrity` |
 | `recommended_action` | TEXT | NOT NULL | Actionable advice for support/admin | `Verify enrollment ledger; create enrollment or invalidate event.` |
 | `resolution_status` | VARCHAR(20) | NOT NULL, DEFAULT 'OPEN' | Workflow state (`OPEN`, `INVESTIGATING`, `RESOLVED`, `FALSE_POSITIVE`) | `OPEN` |
+
+---
+
+## 13. `state_history` (Append-Only State Transition & Audit Ledger)
+Stores an immutable, append-only historical audit trail of all lifecycle state transitions (enrollment status updates, exception triage resolutions, and graduation decisions).
+
+| Field Name | Type | Constraints | Description | Sample Value |
+|---|---|---|---|---|
+| `history_id` | VARCHAR(32) | PRIMARY KEY | Unique deterministic identifier (`HST-<seq>`) | `HST-000001` |
+| `entity_type` | VARCHAR(32) | NOT NULL | Entity classification (`ENROLLMENT`, `EXCEPTION`, `COURSE_OUTCOME`) | `ENROLLMENT` |
+| `entity_id` | VARCHAR(96) | NOT NULL | Primary key of modified entity | `ENR-LRN-000001-CRS-000001` |
+| `previous_state` | VARCHAR(64) | NULL | Prior lifecycle state (NULL for initial creation) | `ACTIVE` |
+| `new_state` | VARCHAR(64) | NOT NULL | Transitioned new lifecycle state | `COMPLETED` |
+| `changed_at` | TIMESTAMP | NOT NULL | Moment of state transition in UTC | `2026-11-20T16:45:00Z` |
+| `actor_role` | VARCHAR(32) | NOT NULL | Role effecting the transition (`SYSTEM`, `SUPPORT_STAFF`, etc.) | `SYSTEM` |
+| `actor_id` | VARCHAR(64) | NULL | Identifier of actor or service | `SYS-DECISION-ENGINE` |
+| `reason` | TEXT | NOT NULL | Justification or rule trigger for transition | `Completion requirements satisfied under rule CLR-CRS-000001-V01` |

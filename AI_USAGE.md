@@ -40,6 +40,9 @@ During the iterative engineering process, the following critical design flaws we
 | **5** | Weekly Active Engagement Rate divided by eligible enrollments. | **Entity mismatch**: Divided distinct learners by total enrollments, skewing rates for multi-enrolled students. | Separated into WALER (Learner Engagement Rate) and WAEER (Enrollment Engagement Rate) with consistent $[W_{\text{start}}, W_{\text{end}}]$ windows. |
 | **6** | Python `CURRENT_TIMESTAMP` defaults in models. | **Nondeterministic exports**: Caused different SHA-256 checksums across repeated runs with the same seed. | Replaced with deterministic reference clock (`2026-10-22T00:00:00Z`) and stable record serialization. |
 | **7** | Vague "AI-assisted" explanation claims. | **Overstatement**: The engine uses deterministic business rules and relational SQL checks, not an LLM. | Renamed to "Explainable Analytics & Decision Engine" with auditable JSON rule checklists. |
+| **8** | Automated exclusion of potential near-duplicates from analytics. | **False negative on rapid interactions**: Users rapidly clicking 'next' or scrubbing videos were censored from engagement rates. | Refined policy: Exact duplicates are auto-excluded; near-duplicates remain candidates for review and are NOT automatically excluded from engagement metrics. |
+| **9** | Overwriting entity lifecycle status in place. | **Lost transition audit**: Enrollment and exception resolution changes destroyed transition history. | Introduced append-only `state_history` table recording entity, previous state, new state, actor, and reason. |
+| **10** | Validation count discrepancy (13 vs 15). | **Inconsistency**: Architecture and validator checks cited different numbers of checks. | Standardized on 15-point cross-entity validation (CHK-01 to CHK-15) across all schemas, APIs, and docs. |
 
 ---
 

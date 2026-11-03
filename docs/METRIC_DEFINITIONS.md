@@ -19,10 +19,11 @@ Let $\mathcal{E}$ be the set of all activity events in the ledger.
    $$\mathcal{T}_{\text{eng}} = \{ \text{COURSE\_OPENED}, \text{CONTENT\_VIEWED}, \text{VIDEO\_PROGRESS}, \text{VIDEO\_COMPLETED}, \text{DOCUMENT\_DOWNLOADED}, \text{QUIZ\_SUBMITTED}, \text{COURSE\_COMPLETED} \}$$
    *(Note: Raw `LOGIN`, `QUIZ_STARTED`, and `VIDEO_STARTED` indicate session initialization rather than substantive learning engagement).*
 2. **Canonical Deduplicated Events ($\mathcal{E}_{\text{canon}}$)**:
-   For any subset of events sharing the exact same `idempotency_key`, only the event with the earliest `ingestion_timestamp` (or lowest `event_id` in case of ties) belongs to $\mathcal{E}_{\text{canon}}$. All other identical rows are flagged as exact duplicates.
+   - **Exact Duplicates**: For any subset of events sharing the exact same `idempotency_key`, only the event with the earliest `ingestion_timestamp` (or lowest `event_id` in case of ties) belongs to $\mathcal{E}_{\text{canon}}$. All other identical rows are flagged as exact duplicates and automatically excluded from engagement analytics.
+   - **Potential Near-Duplicates ($\le 5.0\text{s}$ tolerance)**: Potential near-duplicates within the 5-second window remain candidates for investigation in the Exceptions ledger, but **are NOT automatically excluded** from engagement analytics unless an explicit review or documented policy confirms they are duplicates. This prevents artificial undercounting of legitimate rapid interactions (such as rapid video scrubbing, fast slide navigation, or quick re-downloads).
 3. **Eligible Enrolled Events ($\mathcal{E}_{\text{valid}}(W)$)**:
    $$\mathcal{E}_{\text{valid}}(W) = \{ e \in \mathcal{E}_{\text{canon}} \mid e.\text{event\_type} \in \mathcal{T}_{\text{eng}} \land e.\text{event\_timestamp\_utc} \in [W_{\text{start}}, W_{\text{end}}] \land e.\text{enrollment\_id IS NOT NULL} \}$$
-   *(Explicitly excludes unenrolled activity anomalies, exact duplicates, and non-engagement events).*
+   *(Explicitly excludes unenrolled activity anomalies, exact duplicates, and non-engagement events; retains investigated near-duplicate candidates).*
 
 ---
 

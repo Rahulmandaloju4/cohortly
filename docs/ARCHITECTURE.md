@@ -24,17 +24,19 @@ graph TD
         RBAC --> Analytics_Engine["Analytics Engine (Pure SQL)"]
         RBAC --> Anomaly_Engine["Anomaly Detection Service"]
         RBAC --> Decision_Engine["Explainable Decision Engine"]
+        RBAC --> State_Manager["Append-Only State History Manager"]
         RBAC --> Validator_Service["15-Point Cross-Entity Validator"]
         RBAC --> Generator_Service["Synthetic Data Generator"]
     end
     
     subgraph Data_Storage ["Persistence & Ledgers"]
-        Generator_Service -->|"Batch Inserts (50k chunks)"| SQLite_DB[("SQLite Database (WAL Mode)")]
+        Generator_Service -->|"Batch Inserts (50k chunks)"| SQLite_DB[("SQLite Database (WAL Mode, 13 Tables)")]
         Generator_Service -->|"Isolated Anomaly Labels"| Ground_Truth[("data/ground_truth/ (Isolated)")]
         Analytics_Engine -->|"Aggregated Queries"| SQLite_DB
         Anomaly_Engine -->|"Relational SQL Scans"| SQLite_DB
         Decision_Engine -->|"Outcome Snapshots"| SQLite_DB
-        Validator_Service -->|"Integrity Checks"| SQLite_DB
+        State_Manager -->|"Append-Only State Logs"| SQLite_DB
+        Validator_Service -->|"15-Point Integrity Checks"| SQLite_DB
     end
 
     subgraph Evaluation_Harness ["Independent Evaluation"]
@@ -46,14 +48,15 @@ graph TD
 
 ---
 
-## 3. Two-Tier Deduplication Architecture
+## 3. Two-Tier Deduplication Architecture & Analytics Policy
 
 1. **Exact Deduplication (Idempotency Key)**:
    - Evaluated using a deterministic SHA-256 hash across six fields: `(learner_id, course_id, content_id, event_type, session_id, event_timestamp_utc)`.
-   - The first ingested event is retained as canonical; subsequent duplicate records are retained in the raw ledger but marked with duplicate flags and excluded from analytics denominators and numerators.
-2. **Near-Duplicate Detection (Retry Window)**:
+   - The first ingested event is retained as canonical; subsequent duplicate records are retained in the raw ledger and **automatically excluded from engagement analytics**.
+2. **Near-Duplicate Detection (Retry Window) & Analytics Inclusion Policy**:
    - Scans for events with identical context occurring within $\le 5.0\text{ seconds}$ of each other.
-   - Preserves events while flagging them for investigator inspection in Page 6 (Exceptions & Data Quality Investigator).
+   - Preserves events while flagging them as candidates in the Exceptions ledger for investigation.
+   - **Crucial Policy**: Potential near-duplicates are **NOT** automatically excluded from engagement metrics unless an explicit review or policy confirms they are duplicates. This prevents artificial censorship of legitimate rapid repeated interactions (e.g. video scrubbing, rapid clicks).
 
 ---
 
@@ -108,4 +111,7 @@ To support auditable course completion decisions:
   - `SUPPORT_STAFF`: At-risk learners, inactive student triage, anomaly resolution.
   - `PLATFORM_ADMIN`: System-wide access, generator controls, validation audits.
 - **Enforcement**: Backed by FastAPI route dependencies inspecting `X-Demo-Role` headers.
-- **Boundaries**: Clearly marked in the UI as a demonstration mode; production environments would replace this with OAuth2 / JWT session tokens.
+- **Boundaries & Security Limitations**:
+  - `X-Demo-Role` is strictly a client-controlled demonstration mechanism to evaluate multi-persona visibility without requiring external OAuth/SSO setup in a local evaluation environment.
+  - It does **not** provide cryptographic signature verification, session encryption, password salting, or token revocation.
+  - In production, this architecture would be backed by OAuth2 / OpenID Connect (OIDC) Bearer JWT tokens, signed by an enterprise identity provider (Okta, Auth0, Keycloak) with role claims verified cryptographically.
