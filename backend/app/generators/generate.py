@@ -81,6 +81,7 @@ def generate_dataset(
     num_enrollments: int = None,
     num_events: int = None,
     db_path: str = "data/generated/cohortly.db",
+    ground_truth_path: str = "data/ground_truth/anomalies.json",
     quiet: bool = False,
 ) -> Dict[str, Any]:
     """Generates the synthetic dataset deterministically and persists via batch insertions."""
@@ -261,7 +262,7 @@ def generate_dataset(
     course_ids = [c[0] for c in courses_data]
     cohort_ids = [c[0] for c in cohorts_data]
 
-    # Pre-select active learners for completions
+    learner_reg_map = {l[0]: date.fromisoformat(l[4]) for l in learners_data}
     while len(enrollments_data) < n_enrollments:
         lid = rng.choice(learner_ids)
         cid = rng.choice(course_ids)
@@ -271,22 +272,26 @@ def generate_dataset(
         
         enr_id = make_enrollment_id(lid, cid)
         coh_id = rng.choice(cohort_ids)
-        enrolled_days = rng.randint(20, 50)
-        enrolled_at = clock.datetime_offset(days=-enrolled_days, seconds=rng.randint(0, 86400))
-        expected_comp = clock.date_offset(days=-enrolled_days + 60)
+        reg_d = learner_reg_map[lid]
+        days_since_reg = max(1, (clock.anchor.date() - reg_d).days)
+        offset_from_reg = rng.randint(0, min(days_since_reg, 30))
+        enrolled_at = datetime.combine(reg_d + timedelta(days=offset_from_reg), datetime.min.time()) + timedelta(seconds=rng.randint(0, 86400))
+        expected_comp = (enrolled_at + timedelta(days=60)).date()
         
         # Enrollment outcome distribution: 65% ACTIVE, 25% COMPLETED, 8% DROPPED, 2% PAUSED
         rand_val = rng.random()
         if rand_val < 0.25:
             status = "COMPLETED"
-            comp_days = enrolled_days - rng.randint(5, 20)
-            completed_at = clock.datetime_offset(days=-comp_days).isoformat()
+            comp_days = rng.randint(10, 45)
+            comp_dt = min(enrolled_at + timedelta(days=comp_days), clock.anchor.replace(tzinfo=None) - timedelta(hours=1))
+            completed_at = comp_dt.isoformat()
             dropped_at = None
         elif rand_val < 0.33:
             status = "DROPPED"
+            drop_days = rng.randint(5, 25)
+            drop_dt = min(enrolled_at + timedelta(days=drop_days), clock.anchor.replace(tzinfo=None) - timedelta(hours=1))
             completed_at = None
-            drop_days = enrolled_days - rng.randint(5, 15)
-            dropped_at = clock.datetime_offset(days=-drop_days).isoformat()
+            dropped_at = drop_dt.isoformat()
         elif rand_val < 0.35:
             status = "PAUSED"
             completed_at = None
@@ -315,6 +320,7 @@ def generate_dataset(
     # ---------------------------------------------------------
     content_items_data = []
     course_content_map = {}  # course_id -> list of content_ids
+    course_required_content_map = {}  # course_id -> list of required content_ids
     
     for c in courses_data:
         cid = c[0]
@@ -327,7 +333,7 @@ def generate_dataset(
             c_type = "ARTICLE"
             est_dur = 20
             created_at = c[6]
-            content_items_data.append((module_id, cid, None, mod_title, c_type, seq, est_dur, 1, created_at))
+            content_items_data.append((module_id, cid, None, mod_title, c_type, seq, est_dur, 0, created_at))
             seq += 1
 
             for l in range(1, 4):
@@ -338,6 +344,8 @@ def generate_dataset(
                 is_req = 1 if l < 3 else 0  # 3rd lesson optional elective
                 content_items_data.append((lesson_id, cid, module_id, lesson_title, l_type, seq, l_dur, is_req, created_at))
                 course_content_map[cid].append(lesson_id)
+                if is_req:
+                    course_required_content_map.setdefault(cid, []).append(lesson_id)
                 seq += 1
 
     cursor.executemany(
@@ -414,9 +422,39 @@ def generate_dataset(
     # Generate valid baseline events
     chunk_size = 50000
     events_inserted = 0
-
     batch_to_insert = []
-    
+
+    # Pre-generate required completion events for COMPLETED enrollments
+    # so that genuine completions satisfy the content completion rule
+    completed_enrs = [e for e in enrollments_data if e[5] == "COMPLETED"]
+    for enr in completed_enrs:
+        enr_id = enr[0]
+        lid = enr[1]
+        cid = enr[2]
+        enr_dt = datetime.fromisoformat(enr[4])
+        comp_dt = datetime.fromisoformat(enr[7]) if enr[7] else clock.anchor.replace(tzinfo=None)
+        span_seconds = max(60, int((comp_dt - enr_dt).total_seconds()))
+        content_items = course_required_content_map.get(cid, [])
+        for idx, cont_id in enumerate(content_items):
+            sec_offset = int((idx / max(1, len(content_items))) * span_seconds)
+            event_utc = enr_dt + timedelta(seconds=sec_offset)
+            tz = rng.choice(TIMEZONES)
+            local_d = derive_local_date_from_utc(event_utc, tz)
+            session_id = f"SES-{lid}-{event_utc.strftime('%Y%m%d%H')}"
+            device = rng.choice(DEVICE_TYPES)
+            event_type = "VIDEO_COMPLETED" if idx % 2 == 0 else "DOCUMENT_DOWNLOADED"
+            ingestion_ts = event_utc + timedelta(seconds=2)
+            idemp = compute_idempotency_key(lid, cid, cont_id, event_type, session_id, event_utc.isoformat() + "Z")
+            evt_id = make_event_id(enr_id, evt_counter)
+            evt_counter += 1
+            record = (
+                evt_id, enr_id, lid, cid, cont_id, event_type, event_utc.isoformat(),
+                tz, local_d.isoformat(), session_id, device, "REALTIME",
+                ingestion_ts.isoformat(), idemp
+            )
+            activity_events_data.append(record)
+            batch_to_insert.append(record)
+
     while len(activity_events_data) < n_events:
         enr = rng.choice(active_or_comp_enrs)
         enr_id = enr[0]
@@ -641,7 +679,7 @@ def generate_dataset(
             assessments=sample_assessments,
             attempts=sample_attempts,
             rules=sample_rules,
-            ground_truth_path="data/ground_truth/anomalies.json",
+            ground_truth_path=ground_truth_path,
         )
 
         # Insert injected anomalies into raw SQLite tables

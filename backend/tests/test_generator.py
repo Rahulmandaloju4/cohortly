@@ -10,6 +10,7 @@ from backend.app.generators.generate import generate_dataset
 def starter_dataset():
     """Generates a small test dataset in a temporary sqlite database."""
     test_db_path = "data/generated/test_cohortly.db"
+    test_gt_path = "data/ground_truth/test_anomalies.json"
     summary = generate_dataset(
         profile="starter",
         seed=20261022,
@@ -18,22 +19,25 @@ def starter_dataset():
         num_enrollments=100,
         num_events=500,
         db_path=test_db_path,
+        ground_truth_path=test_gt_path,
         quiet=True,
     )
-    yield test_db_path, summary
+    yield test_db_path, summary, test_gt_path
     # Clean up safely on Windows
     import gc
     gc.collect()
     try:
         if os.path.exists(test_db_path):
             os.remove(test_db_path)
+        if os.path.exists(test_gt_path):
+            os.remove(test_gt_path)
     except OSError:
         pass
 
 
 def test_starter_generation_counts(starter_dataset):
     """Verify that all entities are generated with expected record counts."""
-    test_db_path, summary = starter_dataset
+    test_db_path, summary, _ = starter_dataset
     counts = summary["counts"]
     
     assert counts["learners"] == 50
@@ -50,10 +54,10 @@ def test_starter_generation_counts(starter_dataset):
 
 
 def test_ground_truth_file_isolation(starter_dataset):
-    """Verify that data/ground_truth/anomalies.json exists and contains labelled edge cases."""
-    gt_path = "data/ground_truth/anomalies.json"
-    assert os.path.exists(gt_path)
-    with open(gt_path, "r", encoding="utf-8") as f:
+    """Verify that isolated ground truth exists and contains labelled edge cases."""
+    _, _, test_gt_path = starter_dataset
+    assert os.path.exists(test_gt_path)
+    with open(test_gt_path, "r", encoding="utf-8") as f:
         anomalies = json.load(f)
     
     assert len(anomalies) > 0
@@ -66,7 +70,7 @@ def test_ground_truth_file_isolation(starter_dataset):
 
 def test_database_foreign_key_integrity(starter_dataset):
     """Verify that foreign keys in the generated database are intact."""
-    test_db_path, _ = starter_dataset
+    test_db_path, _, _ = starter_dataset
     conn = sqlite3.connect(test_db_path)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_key_check;")

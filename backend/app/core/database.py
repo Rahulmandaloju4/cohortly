@@ -6,7 +6,6 @@ import os
 
 # Ensure data directory exists
 os.makedirs("data/generated", exist_ok=True)
-os.makedirs("data/ground_truth", exist_ok=True)
 os.makedirs("data/exports", exist_ok=True)
 os.makedirs("data/manifests", exist_ok=True)
 

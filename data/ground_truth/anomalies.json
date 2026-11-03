@@ -2,47 +2,47 @@
   {
     "anomaly_id": "ANO-0001",
     "issue_type": "DUPLICATE_ACTIVITY_EVENT",
-    "affected_record_id": "EVT-ENR-LRN-000025-CRS-000001-000001-DUP",
+    "affected_record_id": "EVT-ENR-LRN-000038-CRS-000008-000001-DUP",
     "expected_detection": "DUPLICATE_ACTIVITY_EVENT",
     "ground_truth_label": "EXACT_DUPLICATE",
-    "description": "Exact duplicate event injected with identical idempotency key '03a75e491b641a3aa32ad23536b67cdb7a19546eb7e90bc879fd9c290710cc61'.",
-    "original_record_id": "EVT-ENR-LRN-000025-CRS-000001-000001"
+    "description": "Exact duplicate event injected with identical idempotency key 'ed30a82c323764310a2785149854f19173a1ecee6f297126dccee4eb56c38657'.",
+    "original_record_id": "EVT-ENR-LRN-000038-CRS-000008-000001"
   },
   {
     "anomaly_id": "ANO-0002",
     "issue_type": "DUPLICATE_ACTIVITY_EVENT",
-    "affected_record_id": "EVT-ENR-LRN-000029-CRS-000005-000002-DUP",
+    "affected_record_id": "EVT-ENR-LRN-000038-CRS-000008-000002-DUP",
     "expected_detection": "DUPLICATE_ACTIVITY_EVENT",
     "ground_truth_label": "EXACT_DUPLICATE",
-    "description": "Exact duplicate event injected with identical idempotency key '16f3f0948882982fccb9353a3cd7b218234718254ec401eb9f44a45cb3e4d363'.",
-    "original_record_id": "EVT-ENR-LRN-000029-CRS-000005-000002"
+    "description": "Exact duplicate event injected with identical idempotency key 'f0f1aa615c6eb57a689bdeae36e5f95092c65d33aa49559593f8bf1f9aa5fb0a'.",
+    "original_record_id": "EVT-ENR-LRN-000038-CRS-000008-000002"
   },
   {
     "anomaly_id": "ANO-0003",
     "issue_type": "DUPLICATE_ACTIVITY_EVENT",
-    "affected_record_id": "EVT-ENR-LRN-000012-CRS-000002-000003-DUP",
+    "affected_record_id": "EVT-ENR-LRN-000038-CRS-000008-000003-DUP",
     "expected_detection": "DUPLICATE_ACTIVITY_EVENT",
     "ground_truth_label": "EXACT_DUPLICATE",
-    "description": "Exact duplicate event injected with identical idempotency key '9712d520f8512fd7cbf4f2406fc38c279ca6904965fe0e51537f19e21fbe52cf'.",
-    "original_record_id": "EVT-ENR-LRN-000012-CRS-000002-000003"
+    "description": "Exact duplicate event injected with identical idempotency key '53951a1a22da444f8b6d32abc91528a34e5cc908390215bf2731b03ea38031f7'.",
+    "original_record_id": "EVT-ENR-LRN-000038-CRS-000008-000003"
   },
   {
     "anomaly_id": "ANO-0004",
     "issue_type": "DUPLICATE_ACTIVITY_EVENT",
-    "affected_record_id": "EVT-ENR-LRN-000015-CRS-000001-000004-DUP",
+    "affected_record_id": "EVT-ENR-LRN-000038-CRS-000008-000004-DUP",
     "expected_detection": "DUPLICATE_ACTIVITY_EVENT",
     "ground_truth_label": "EXACT_DUPLICATE",
-    "description": "Exact duplicate event injected with identical idempotency key '344bce6c481f472e591228d8f047e9fcec0447ed6c337dba5e572d8a7c1ff960'.",
-    "original_record_id": "EVT-ENR-LRN-000015-CRS-000001-000004"
+    "description": "Exact duplicate event injected with identical idempotency key 'fc8cb802ef93584711603066de44cbe13529b3fcb77e53b476a22ee7804c643f'.",
+    "original_record_id": "EVT-ENR-LRN-000038-CRS-000008-000004"
   },
   {
     "anomaly_id": "ANO-0005",
     "issue_type": "DUPLICATE_ACTIVITY_EVENT",
-    "affected_record_id": "EVT-ENR-LRN-000047-CRS-000001-000005-DUP",
+    "affected_record_id": "EVT-ENR-LRN-000038-CRS-000008-000005-DUP",
     "expected_detection": "DUPLICATE_ACTIVITY_EVENT",
     "ground_truth_label": "EXACT_DUPLICATE",
-    "description": "Exact duplicate event injected with identical idempotency key '3aeff4477f00482193646cc7f9fdfb661327f86527b743dd63a9d3eeb226bdaf'.",
-    "original_record_id": "EVT-ENR-LRN-000047-CRS-000001-000005"
+    "description": "Exact duplicate event injected with identical idempotency key '43cded7571154af47a7bc8d1d62820b6626a8aeccd74d144fd70350a0df0421d'.",
+    "original_record_id": "EVT-ENR-LRN-000038-CRS-000008-000005"
   },
   {
     "anomaly_id": "ANO-0006",
@@ -57,16 +57,16 @@
   {
     "anomaly_id": "ANO-0007",
     "issue_type": "PREMATURE_COMPLETION",
-    "affected_record_id": "OUT-ENR-LRN-000015-CRS-000003-V02",
+    "affected_record_id": "OUT-ENR-LRN-000123-CRS-000002-V02",
     "expected_detection": "PREMATURE_COMPLETION",
     "ground_truth_label": "RULE_VIOLATION",
-    "description": "Enrollment ENR-LRN-000015-CRS-000003 marked COMPLETED despite failing content and assessment passing rules.",
-    "enrollment_id": "ENR-LRN-000015-CRS-000003"
+    "description": "Enrollment ENR-LRN-000123-CRS-000002 marked COMPLETED despite failing content and assessment passing rules.",
+    "enrollment_id": "ENR-LRN-000123-CRS-000002"
   },
   {
     "anomaly_id": "ANO-0008",
     "issue_type": "TIMEZONE_DATE_MISMATCH",
-    "affected_record_id": "EVT-ENR-LRN-000003-CRS-000003-000050-TZCORRUPT",
+    "affected_record_id": "EVT-ENR-LRN-000092-CRS-000002-000050-TZCORRUPT",
     "expected_detection": "TIMEZONE_DATE_MISMATCH",
     "ground_truth_label": "INCORRECT_LOCAL_DATE",
     "description": "Stored event_date (2026-09-15) does not match the true derived local date (2026-09-16) for Asia/Tokyo at 23:30:00 UTC."
