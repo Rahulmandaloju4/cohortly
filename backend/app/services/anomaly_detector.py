@@ -6,7 +6,7 @@ It NEVER references, imports, or joins the ground truth ledger.
 
 import json
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -16,9 +16,12 @@ from backend.app.utils.time_utils import is_timezone_date_consistent
 from backend.app.services.completion_engine import evaluate_enrollment_completion
 
 
-def scan_and_register_anomalies(db: Session) -> Dict[str, Any]:
+def scan_and_register_anomalies(db: Session, detection_time: Optional[datetime] = None) -> Dict[str, Any]:
     """Runs pure relational rules to detect data anomalies and registers them into the exceptions table."""
-    now = datetime.utcnow()
+    if detection_time is None:
+        # Default to deterministic anchor detection timestamp: 2026-10-22 01:00:00 UTC
+        detection_time = datetime(2026, 10, 22, 1, 0, 0)
+    now = detection_time
     detected_exceptions = []
     
     # Existing exception counter to ensure deterministic incremental IDs

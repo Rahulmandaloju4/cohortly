@@ -10,6 +10,7 @@ from sqlalchemy import text, func
 
 from backend.app.core.database import get_db
 from backend.app.core.rbac import require_roles, Roles
+from backend.app.analytics.engagement import calculate_weekly_engagement
 from backend.app.schemas.cohorts import (
     CohortListItem,
     CohortAnalytics,
@@ -89,28 +90,9 @@ def get_cohort_analytics(
     w_end = datetime(2026, 10, 22, 0, 0, 0)
     w_start = w_end - timedelta(days=7)
 
-    elig_learners = db.query(func.count(func.distinct(Enrollment.learner_id))).filter(
-        Enrollment.cohort_id == cohort_id,
-        Enrollment.enrollment_status == "ACTIVE"
-    ).scalar() or 1
-
-    active_learners = db.execute(text("""
-        SELECT COUNT(DISTINCT e.learner_id)
-        FROM activity_events e
-        JOIN enrollments en ON e.enrollment_id = en.enrollment_id
-        WHERE en.cohort_id = :cid
-          AND e.event_timestamp_utc >= :w_start AND e.event_timestamp_utc < :w_end
-    """), {"cid": cohort_id, "w_start": w_start, "w_end": w_end}).scalar() or 0
-    waler = round((active_learners / elig_learners) * 100.0, 2)
-
-    active_enrs = db.execute(text("""
-        SELECT COUNT(DISTINCT e.enrollment_id)
-        FROM activity_events e
-        JOIN enrollments en ON e.enrollment_id = en.enrollment_id
-        WHERE en.cohort_id = :cid
-          AND e.event_timestamp_utc >= :w_start AND e.event_timestamp_utc < :w_end
-    """), {"cid": cohort_id, "w_start": w_start, "w_end": w_end}).scalar() or 0
-    waeer = round((active_enrs / max(active, 1)) * 100.0, 2)
+    eng = calculate_weekly_engagement(db, w_start, w_end, cohort_id=cohort_id)
+    waler = eng["waler"]
+    waeer = eng["waeer"]
 
     # Risk distribution in cohort
     cutoff_14d = w_end - timedelta(days=14)

@@ -3,6 +3,13 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 
+class AnomalyBreakdownItem(BaseModel):
+    issue_type: str
+    count: int
+    severity: str
+    description: str
+
+
 class OverviewMetrics(BaseModel):
     total_learners: int
     active_learners: int
@@ -14,6 +21,7 @@ class OverviewMetrics(BaseModel):
     overall_completion_rate: float
     at_risk_learner_count: int
     active_anomaly_count: int
+    active_anomalies_breakdown: List[AnomalyBreakdownItem] = []
     total_activity_events: int
     deduplicated_events: int
 

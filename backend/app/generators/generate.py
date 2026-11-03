@@ -30,6 +30,7 @@ from backend.app.utils.ids import (
 from backend.app.utils.crypto import compute_idempotency_key
 from backend.app.utils.time_utils import derive_local_date_from_utc
 from backend.app.generators.anomalies import inject_anomalies
+from backend.app.services.anomaly_detector import scan_and_register_anomalies
 
 # Curricular Domains
 COURSE_CATEGORIES = [
@@ -735,11 +736,13 @@ def generate_dataset(
             )
 
         conn.commit()
+        # Scan and register operational anomalies into exceptions table deterministically
+        scan_and_register_anomalies(db, detection_time=clock.datetime_offset(0, seconds=3600))
     finally:
         db.close()
 
     if not quiet:
-        print(f"[OK] Injected {len(injected['ground_truth_records'])} Labelled Edge Cases into Database & Isolated Ground Truth")
+        print(f"[OK] Injected {len(injected['ground_truth_records'])} Labelled Edge Cases & Registered Operational Exceptions")
 
     # Re-enable foreign keys
     conn.execute("PRAGMA foreign_keys = ON;")
@@ -763,6 +766,7 @@ def generate_dataset(
             "attempts": len(attempts_data),
             "completion_rules": len(rules_data),
             "course_outcomes": len(outcomes_data) + len(injected["premature_outcomes"]),
+            "exceptions": len(injected["ground_truth_records"]),
             "state_history": len(history_data),
             "anomalies_injected": len(injected["ground_truth_records"]),
         }

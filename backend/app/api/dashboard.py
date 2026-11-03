@@ -10,8 +10,9 @@ from sqlalchemy import text, func
 
 from backend.app.core.database import get_db
 from backend.app.core.rbac import require_roles, Roles
-from backend.app.schemas.dashboard import OverviewMetrics, EngagementTrendPoint, CompletionTrendPoint
+from backend.app.schemas.dashboard import OverviewMetrics, EngagementTrendPoint, CompletionTrendPoint, AnomalyBreakdownItem
 from backend.app.models import Learner, Enrollment, Course, Cohort, ActivityEvent, ExceptionRecord, CourseOutcome
+from backend.app.analytics.engagement import calculate_weekly_engagement
 from backend.app.services.deduplication import analyze_deduplication
 from backend.app.utils.time_utils import get_iso_week_bounds
 
@@ -44,44 +45,9 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     w_end = datetime(2026, 10, 22, 0, 0, 0)
     w_start = w_end - timedelta(days=7)
 
-    # Eligible learners: registered on or before w_end and ACTIVE
-    eligible_learners_count = db.query(func.count(Learner.learner_id)).filter(
-        Learner.registration_date <= w_end.date(),
-        Learner.learner_status == "ACTIVE"
-    ).scalar() or 1
-
-    # Active learners in window: distinct learners with an enrolled event
-    active_learners_query = text("""
-        SELECT COUNT(DISTINCT e.learner_id)
-        FROM activity_events e
-        WHERE e.event_timestamp_utc >= :w_start
-          AND e.event_timestamp_utc < :w_end
-          AND e.enrollment_id IS NOT NULL
-    """)
-    active_learners_in_window = db.execute(
-        active_learners_query, {"w_start": w_start, "w_end": w_end}
-    ).scalar() or 0
-
-    waler = round((active_learners_in_window / eligible_learners_count) * 100.0, 2)
-
-    # Eligible enrollments: enrolled on or before w_end and not dropped before w_start
-    eligible_enrs_count = db.query(func.count(Enrollment.enrollment_id)).filter(
-        Enrollment.enrolled_at <= w_end,
-        (Enrollment.dropped_at.is_(None) | (Enrollment.dropped_at >= w_start))
-    ).scalar() or 1
-
-    active_enrs_query = text("""
-        SELECT COUNT(DISTINCT e.enrollment_id)
-        FROM activity_events e
-        WHERE e.event_timestamp_utc >= :w_start
-          AND e.event_timestamp_utc < :w_end
-          AND e.enrollment_id IS NOT NULL
-    """)
-    active_enrs_in_window = db.execute(
-        active_enrs_query, {"w_start": w_start, "w_end": w_end}
-    ).scalar() or 0
-
-    waeer = round((active_enrs_in_window / eligible_enrs_count) * 100.0, 2)
+    eng_metrics = calculate_weekly_engagement(db, w_start, w_end)
+    waler = eng_metrics["waler"]
+    waeer = eng_metrics["waeer"]
 
     # 3. Overall completion rate: completed enrollments / total enrollments
     completed_enrs = db.query(func.count(Enrollment.enrollment_id)).filter(
@@ -103,10 +69,28 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     """)
     at_risk_count = db.execute(at_risk_query, {"cutoff": cutoff_14d}).scalar() or 0
 
-    # 5. Active anomaly count
-    active_anomalies = db.query(func.count(ExceptionRecord.exception_id)).filter(
+    # 5. Active anomaly count & breakdown
+    active_breakdown_rows = db.query(
+        ExceptionRecord.issue_type,
+        ExceptionRecord.severity,
+        func.count(ExceptionRecord.exception_id).label("count"),
+        func.min(ExceptionRecord.description).label("description")
+    ).filter(
         ExceptionRecord.resolution_status.in_(["OPEN", "INVESTIGATING"])
-    ).scalar() or 0
+    ).group_by(ExceptionRecord.issue_type, ExceptionRecord.severity).order_by(
+        func.count(ExceptionRecord.exception_id).desc()
+    ).all()
+
+    active_anomalies = sum(r.count for r in active_breakdown_rows)
+    breakdown_list = [
+        AnomalyBreakdownItem(
+            issue_type=r.issue_type,
+            count=r.count,
+            severity=r.severity,
+            description=r.description
+        )
+        for r in active_breakdown_rows
+    ]
 
     return OverviewMetrics(
         total_learners=total_learners,
@@ -119,6 +103,7 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
         overall_completion_rate=completion_rate,
         at_risk_learner_count=at_risk_count,
         active_anomaly_count=active_anomalies,
+        active_anomalies_breakdown=breakdown_list,
         total_activity_events=raw_events,
         deduplicated_events=dedup_events,
     )
@@ -142,48 +127,19 @@ def get_engagement_trend(
         w_end = anchor - timedelta(days=i * 7)
         w_start = w_end - timedelta(days=7)
 
-        # Eligible learners
-        elig_learners = db.query(func.count(Learner.learner_id)).filter(
-            Learner.registration_date <= w_end.date(),
-            Learner.learner_status == "ACTIVE"
-        ).scalar() or 1
-
-        active_l_q = text("""
-            SELECT COUNT(DISTINCT learner_id)
-            FROM activity_events
-            WHERE event_timestamp_utc >= :w_start AND event_timestamp_utc < :w_end
-              AND enrollment_id IS NOT NULL
-        """)
-        active_learners = db.execute(active_l_q, {"w_start": w_start, "w_end": w_end}).scalar() or 0
-        waler = round((active_learners / elig_learners) * 100.0, 2)
-
-        # Eligible enrollments
-        elig_enrs = db.query(func.count(Enrollment.enrollment_id)).filter(
-            Enrollment.enrolled_at <= w_end,
-            (Enrollment.dropped_at.is_(None) | (Enrollment.dropped_at >= w_start))
-        ).scalar() or 1
-
-        active_e_q = text("""
-            SELECT COUNT(DISTINCT enrollment_id)
-            FROM activity_events
-            WHERE event_timestamp_utc >= :w_start AND event_timestamp_utc < :w_end
-              AND enrollment_id IS NOT NULL
-        """)
-        active_enrs = db.execute(active_e_q, {"w_start": w_start, "w_end": w_end}).scalar() or 0
-        waeer = round((active_enrs / elig_enrs) * 100.0, 2)
-
+        eng = calculate_weekly_engagement(db, w_start, w_end)
         label = f"W-{w_start.strftime('%m/%d')}"
 
         trends.append(EngagementTrendPoint(
             period_start=w_start.strftime("%Y-%m-%d"),
             period_end=w_end.strftime("%Y-%m-%d"),
             label=label,
-            distinct_active_learners=active_learners,
-            eligible_learners=elig_learners,
-            waler=waler,
-            distinct_active_enrollments=active_enrs,
-            eligible_enrollments=elig_enrs,
-            waeer=waeer,
+            distinct_active_learners=eng["distinct_active_learners"],
+            eligible_learners=eng["eligible_learners"],
+            waler=eng["waler"],
+            distinct_active_enrollments=eng["distinct_active_enrollments"],
+            eligible_enrollments=eng["eligible_enrollments"],
+            waeer=eng["waeer"],
         ))
 
     return trends

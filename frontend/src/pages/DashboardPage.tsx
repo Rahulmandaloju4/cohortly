@@ -379,35 +379,39 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-100 flex items-start space-x-3">
-              <span className="w-2 h-2 rounded-full bg-rose-500 mt-1.5 flex-shrink-0 animate-ping"></span>
-              <div className="text-xs">
-                <span className="font-bold text-rose-900">PREMATURE_COMPLETION</span>
-                <p className="text-rose-700 mt-0.5">
-                  1 learner marked completed without fulfilling 80% content requirement.
-                </p>
-              </div>
-            </div>
+            {metrics?.active_anomalies_breakdown && metrics.active_anomalies_breakdown.length > 0 ? (
+              metrics.active_anomalies_breakdown.map((item: any) => {
+                const isCritical = item.severity === 'CRITICAL';
+                const isHigh = item.severity === 'HIGH';
+                const bgClass = isCritical ? 'bg-rose-50 border-rose-100' : isHigh ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100';
+                const dotClass = isCritical ? 'bg-rose-500 animate-ping' : isHigh ? 'bg-amber-500' : 'bg-blue-500';
+                const textHeaderClass = isCritical ? 'text-rose-900' : isHigh ? 'text-amber-900' : 'text-blue-900';
+                const textDescClass = isCritical ? 'text-rose-700' : isHigh ? 'text-amber-700' : 'text-blue-700';
 
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex items-start space-x-3">
-              <span className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0"></span>
-              <div className="text-xs">
-                <span className="font-bold text-amber-900">UNENROLLED_LEARNER_ACTIVITY</span>
-                <p className="text-amber-700 mt-0.5">
-                  1 unmapped activity event detected lacking matching course enrollment.
-                </p>
+                return (
+                  <div key={item.issue_type} className={`p-3 rounded-lg border flex items-start space-x-3 ${bgClass}`}>
+                    <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dotClass}`}></span>
+                    <div className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold ${textHeaderClass}`}>{item.issue_type}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/80 border border-slate-200 text-slate-700">
+                          {item.count} {item.count === 1 ? 'record' : 'records'}
+                        </span>
+                      </div>
+                      <p className={`${textDescClass} mt-0.5`}>
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100 text-center text-xs text-emerald-800">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                <span className="font-semibold">All Anomalies Resolved</span>
+                <p className="text-emerald-600 text-[11px] mt-0.5">Platform relational integrity is currently 100% clean.</p>
               </div>
-            </div>
-
-            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 flex items-start space-x-3">
-              <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
-              <div className="text-xs">
-                <span className="font-bold text-blue-900">DUPLICATE_ACTIVITY_EVENT</span>
-                <p className="text-blue-700 mt-0.5">
-                  5 redundant events sharing idempotency key excluded from analytics.
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 

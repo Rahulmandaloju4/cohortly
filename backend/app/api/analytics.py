@@ -11,6 +11,7 @@ from sqlalchemy import text, func
 
 from backend.app.core.database import get_db
 from backend.app.core.rbac import require_roles, Roles
+from backend.app.analytics.engagement import calculate_weekly_engagement
 from backend.app.schemas.analytics import EngagementAnalytics, CompletionAnalytics, ContentUsageItem, BreakdownSegment
 from backend.app.models import Learner, Enrollment, Course, Cohort, ContentItem, ActivityEvent
 
@@ -29,21 +30,10 @@ def get_engagement_analytics(db: Session = Depends(get_db)):
     w_start = w_end - timedelta(days=7)
 
     # 1. Overall
-    total_active_learners = db.query(func.count(Learner.learner_id)).filter(Learner.learner_status == "ACTIVE").scalar() or 1
-    active_in_w = db.execute(text("""
-        SELECT COUNT(DISTINCT learner_id)
-        FROM activity_events
-        WHERE event_timestamp_utc >= :w_start AND event_timestamp_utc < :w_end AND enrollment_id IS NOT NULL
-    """), {"w_start": w_start, "w_end": w_end}).scalar() or 0
-    overall_waler = round((active_in_w / total_active_learners) * 100.0, 2)
-
-    total_active_enrs = db.query(func.count(Enrollment.enrollment_id)).filter(Enrollment.enrollment_status == "ACTIVE").scalar() or 1
-    active_enr_in_w = db.execute(text("""
-        SELECT COUNT(DISTINCT enrollment_id)
-        FROM activity_events
-        WHERE event_timestamp_utc >= :w_start AND event_timestamp_utc < :w_end AND enrollment_id IS NOT NULL
-    """), {"w_start": w_start, "w_end": w_end}).scalar() or 0
-    overall_waeer = round((active_enr_in_w / total_active_enrs) * 100.0, 2)
+    eng = calculate_weekly_engagement(db, w_start, w_end)
+    overall_waler = eng["waler"]
+    overall_waeer = eng["waeer"]
+    total_active_learners = eng["distinct_active_learners"]
 
     # 2. By Region
     region_rows = db.execute(text("""
@@ -80,7 +70,7 @@ def get_engagement_analytics(db: Session = Depends(get_db)):
             segment=r[0],
             active_count=r[1],
             eligible_count=total_active_learners,
-            rate=round((r[1] / total_active_learners) * 100.0, 2),
+            rate=round((r[1] / total_active_learners) * 100.0, 2) if total_active_learners > 0 else 0.0,
         )
         for r in device_rows
     ]

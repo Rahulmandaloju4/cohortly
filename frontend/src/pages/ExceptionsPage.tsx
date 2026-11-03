@@ -122,7 +122,11 @@ export const ExceptionsPage: React.FC = () => {
 
   // KPI Calculations
   const totalCount = exceptions.length;
+  const activeCount = exceptions.filter(
+    (e) => e.resolution_status === 'OPEN' || e.resolution_status === 'INVESTIGATING'
+  ).length;
   const openCount = exceptions.filter((e) => e.resolution_status === 'OPEN').length;
+  const investigatingCount = exceptions.filter((e) => e.resolution_status === 'INVESTIGATING').length;
   const criticalCount = exceptions.filter((e) => e.severity === 'CRITICAL').length;
   const resolvedCount = exceptions.filter(
     (e) => e.resolution_status === 'RESOLVED' || e.resolution_status === 'FALSE_POSITIVE'
@@ -189,11 +193,11 @@ export const ExceptionsPage: React.FC = () => {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Open & Untriaged</span>
+            <span>Active in Triage</span>
             <Clock className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-2xl font-bold text-rose-600">{openCount}</div>
-          <p className="text-[11px] text-slate-400">Pending engineer investigation</p>
+          <div className="text-2xl font-bold text-rose-600">{activeCount}</div>
+          <p className="text-[11px] text-slate-400">{openCount} Open, {investigatingCount} Investigating</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-1">
@@ -207,7 +211,7 @@ export const ExceptionsPage: React.FC = () => {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Resolved / Triaged</span>
+            <span>Resolved / Dismissed</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="text-2xl font-bold text-emerald-600">{resolvedCount}</div>

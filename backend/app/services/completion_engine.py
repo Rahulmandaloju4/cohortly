@@ -198,6 +198,7 @@ def record_outcome_snapshot(
     enrollment_id: str,
     actor_role: str = "SYSTEM",
     actor_id: str = "SYS-COMPLETION-ENGINE",
+    calculated_at: Optional[datetime] = None,
 ) -> CourseOutcome:
     """Evaluates requirements and records a new historical CourseOutcome snapshot, preserving prior versions."""
     eval_result = evaluate_enrollment_completion(db, enrollment_id)
@@ -212,7 +213,7 @@ def record_outcome_snapshot(
     prev_version = current_outcome.outcome_version if current_outcome else 0
     new_version = prev_version + 1
     new_outcome_id = make_outcome_id(enrollment_id, version=new_version)
-    now = datetime.utcnow()
+    now = calculated_at or datetime(2026, 10, 22, 0, 0, 0)
 
     # 2. Demote existing outcome to historical
     if current_outcome:
