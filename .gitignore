@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+.npm
+.eslintcache
+*.local
+
+# Database & Large Generated Files (keep gitkeeps)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+data/generated/*.db
+data/generated/*.sqlite
+data/exports/*.csv
+data/exports/*.json
+!data/exports/.gitkeep
+data/manifests/*.json
+!data/manifests/.gitkeep
+!data/ground_truth/.gitkeep
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
