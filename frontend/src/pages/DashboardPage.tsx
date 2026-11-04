@@ -29,6 +29,7 @@ import {
   Legend,
   Area,
   AreaChart,
+  Brush,
 } from 'recharts';
 import { getDashboardOverview, getEngagementTrends, getCompletionTrends } from '../services/api';
 import { useRole } from '../context/RoleContext';
@@ -132,156 +133,210 @@ export const DashboardPage: React.FC = () => {
       {/* 8 Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: WALER */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">WALER (Learner Engagement)</span>
-            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-              <TrendingUp className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-600">
+                <span>WALER (Learner Engagement)</span>
+                <div className="relative group inline-flex items-center">
+                  <button
+                    type="button"
+                    aria-label="WALER Definition and Formula"
+                    title="Weekly Active Learner Engagement Rate: (Distinct Active Learners / Distinct Eligible Learners) × 100"
+                    className="text-slate-400 hover:text-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded p-0.5 transition-colors cursor-help"
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:flex group-focus-within:flex flex-col z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl pointer-events-none transition-all">
+                    <span className="font-semibold text-slate-100">Weekly Active Learner Engagement Rate</span>
+                    <span className="text-slate-300 mt-1 font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                      (Distinct Active Learners / Distinct Eligible Learners) × 100
+                    </span>
+                    <div className="absolute top-full left-4 border-4 border-transparent border-t-slate-900" />
+                  </div>
+                </div>
+              </div>
+              <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                <TrendingUp className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-blue-600">{metrics?.waler}%</span>
+              <span className="text-xs text-emerald-600 font-medium flex items-center">
+                Active / Eligible
+              </span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-blue-600">{metrics?.waler}%</span>
-            <span className="text-xs text-emerald-600 font-medium flex items-center">
-              Active / Eligible
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Distinct active learners in past 7 days vs registered eligible pool.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Distinct active learners in the past 7 days compared with the eligible learner population.
           </p>
         </div>
 
         {/* KPI 2: WAEER */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">WAEER (Enrollment Rate)</span>
-            <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-              <Activity className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-600">
+                <span>WAEER (Enrollment Rate)</span>
+                <div className="relative group inline-flex items-center">
+                  <button
+                    type="button"
+                    aria-label="WAEER Definition and Formula"
+                    title="Weekly Active Enrollment Engagement Rate: (Distinct Active Enrollments / Eligible Enrollments) × 100"
+                    className="text-slate-400 hover:text-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-0.5 transition-colors cursor-help"
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:flex group-focus-within:flex flex-col z-30 w-64 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl pointer-events-none transition-all">
+                    <span className="font-semibold text-slate-100">Weekly Active Enrollment Engagement Rate</span>
+                    <span className="text-slate-300 mt-1 font-mono text-[10px] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                      (Distinct Active Enrollments / Eligible Enrollments) × 100
+                    </span>
+                    <div className="absolute top-full left-4 border-4 border-transparent border-t-slate-900" />
+                  </div>
+                </div>
+              </div>
+              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                <Activity className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-indigo-600">{metrics?.waeer}%</span>
+              <span className="text-xs text-slate-500 font-medium">Enrollment Window</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-indigo-600">{metrics?.waeer}%</span>
-            <span className="text-xs text-slate-500 font-medium">Enrollment Window</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Distinct active course enrollments with interactions in 7-day window.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Distinct active course enrollments with activity during the 7-day reporting window.
           </p>
         </div>
 
         {/* KPI 3: Completion Rate */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">Overall Completion Rate</span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-              <GraduationCap className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">Overall Completion Rate</span>
+              <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                <GraduationCap className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-emerald-600">
+                {metrics?.overall_completion_rate}%
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Across Cohorts</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-emerald-600">
-              {metrics?.overall_completion_rate}%
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Across Cohorts</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Graduated students meeting active 80% content + 70% exam rules.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Graduated learners meeting the configured course completion requirements.
           </p>
         </div>
 
         {/* KPI 4: At-Risk Learners */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">At-Risk Learners</span>
-            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-              <AlertTriangle className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">At-Risk Learners</span>
+              <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600 shrink-0">
+                <AlertTriangle className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-amber-600">
+                {metrics?.at_risk_learner_count?.toLocaleString()}
+              </span>
+              <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded">
+                0 events &gt;14d
+              </span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-amber-600">
-              {metrics?.at_risk_learner_count}
-            </span>
-            <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded">
-              0 events &gt;14d
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Enrolled students with zero activity in last 14 days or failing tests.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Enrolled learners with no activity in the last 14 days or who meet the configured assessment-risk criteria.
           </p>
         </div>
 
         {/* KPI 5: Active Learners */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">Active Students</span>
-            <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600">
-              <Users className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">Active Students</span>
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600 shrink-0">
+                <Users className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-slate-800">
+                {metrics?.active_learners?.toLocaleString()}
+              </span>
+              <span className="text-xs text-slate-500">/ {metrics?.total_learners?.toLocaleString()} Total</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-slate-800">
-              {metrics?.active_learners}
-            </span>
-            <span className="text-xs text-slate-500">/ {metrics?.total_learners} Total</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Registered learners currently marked in active standing.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Registered learners currently marked as active.
           </p>
         </div>
 
         {/* KPI 6: Active Courses */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">Curriculum Catalog</span>
-            <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600">
-              <BookOpen className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">Curriculum Catalog</span>
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600 shrink-0">
+                <BookOpen className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-slate-800">
+                {metrics?.total_courses?.toLocaleString()}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Active / 500 Total ({metrics?.active_cohorts} Cohorts)</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-slate-800">
-              {metrics?.total_courses}
-            </span>
-            <span className="text-xs text-slate-500">Courses ({metrics?.active_cohorts} Cohorts)</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Active intermediate, beginner, and advanced AI curriculum.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Active courses available across the cohort structure.
           </p>
         </div>
 
         {/* KPI 7: Total Enrollments */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">Total Enrollments</span>
-            <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600">
-              <UserCheck className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">Total Enrollments</span>
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-600 shrink-0">
+                <UserCheck className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-slate-800">
+                {metrics?.total_enrollments?.toLocaleString()}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">Seats</span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-slate-800">
-              {metrics?.total_enrollments}
-            </span>
-            <span className="text-xs text-slate-500">Seats</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Across North America, Europe, Asia Pacific, and Latin America.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Total course enrollment records across the platform.
           </p>
         </div>
 
         {/* KPI 8: Active Anomalies */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span className="font-semibold text-slate-600">Active Quality Anomalies</span>
-            <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600">
-              <ShieldAlert className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm card-hover-effect flex flex-col justify-between h-full min-h-[155px]">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">Active Quality Anomalies</span>
+              <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600 shrink-0">
+                <ShieldAlert className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline space-x-2">
+              <span className="text-3xl font-extrabold text-rose-600">
+                {metrics?.active_anomaly_count?.toLocaleString()}
+              </span>
+              <span className="text-xs text-rose-700 font-medium bg-rose-50 px-2 py-0.5 rounded">
+                Triage Required
+              </span>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline space-x-2">
-            <span className="text-3xl font-extrabold text-rose-600">
-              {metrics?.active_anomaly_count}
-            </span>
-            <span className="text-xs text-rose-700 font-medium bg-rose-50 px-2 py-0.5 rounded">
-              Triage Required
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            Detected relational violations, duplicates, or premature completions.
+          <p className="text-[11px] text-slate-500 mt-3 leading-relaxed break-words">
+            Detected data-quality violations requiring investigation.
           </p>
         </div>
       </div>
@@ -302,9 +357,9 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="h-72 w-full">
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={engagementData}>
+              <AreaChart data={engagementData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                 <defs>
                   <linearGradient id="colorWaler" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563EB" stopOpacity={0.2} />
@@ -319,12 +374,13 @@ export const DashboardPage: React.FC = () => {
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
                 <YAxis unit="%" tick={{ fontSize: 11, fill: '#64748B' }} domain={[0, 100]} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [`${val}%`, '']}
+                  contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', color: '#fff', fontSize: '12px', border: 'none' }}
+                  formatter={(val: any, name: any) => [`${val}%`, name]}
+                  labelFormatter={(label) => `Reporting Window: ${label}`}
                 />
-                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Area type="monotone" dataKey="waler" name="WALER (Learner Active %)" stroke="#2563EB" strokeWidth={2.5} fillOpacity={1} fill="url(#colorWaler)" />
-                <Area type="monotone" dataKey="waeer" name="WAEER (Enrollment Active %)" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#colorWaeer)" />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '12px', paddingBottom: '8px' }} />
+                <Area type="monotone" dataKey="waler" name="WALER (Learner Active %)" stroke="#2563EB" strokeWidth={2.5} fillOpacity={1} fill="url(#colorWaler)" isAnimationActive={false} />
+                <Area type="monotone" dataKey="waeer" name="WAEER (Enrollment Active %)" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#colorWaeer)" isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -332,31 +388,58 @@ export const DashboardPage: React.FC = () => {
 
         {/* Chart 2: Cohort Graduation Rate Comparison */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <GraduationCap className="w-4 h-4 text-emerald-600" />
                 Cohort Graduation & Average Score Progression
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Cohort-level completion percentage and final assessment attainment.
+                Cohort-level completion percentage and final assessment attainment across 50 cohorts.
               </p>
+            </div>
+            <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 self-start sm:self-auto flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span>Use brush below to pan/zoom cohorts</span>
             </div>
           </div>
 
-          <div className="h-72 w-full">
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={completionData}>
+              <BarChart data={completionData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="cohort_name" tick={{ fontSize: 10, fill: '#64748B' }} tickFormatter={(name) => name.split(' ')[1] || name} />
+                <XAxis
+                  dataKey="cohort_name"
+                  tick={{ fontSize: 11, fill: '#64748B' }}
+                  tickFormatter={(name: string) => {
+                    const match = name.match(/Cohort \d{4}-(\d{2})/);
+                    return match ? `C-${match[1]}` : name;
+                  }}
+                  interval={0}
+                />
                 <YAxis unit="%" tick={{ fontSize: 11, fill: '#64748B' }} domain={[0, 100]} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [`${val}%`, '']}
+                  contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', color: '#fff', fontSize: '12px', border: 'none' }}
+                  formatter={(val: any, name: any) => [
+                    name === 'Completion Rate (%)' ? `${val}%` : `${val} pts`,
+                    name
+                  ]}
+                  labelFormatter={(label) => `Cohort: ${label}`}
                 />
-                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                <Bar dataKey="completion_rate" name="Completion Rate (%)" fill="#10B981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="avg_score" name="Avg Final Score" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '12px', paddingBottom: '8px' }} />
+                <Bar dataKey="completion_rate" name="Completion Rate (%)" fill="#10B981" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="avg_score" name="Avg Final Score" fill="#3B82F6" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                {completionData.length > 0 && (
+                  <Brush
+                    dataKey="cohort_name"
+                    height={22}
+                    stroke="#3B82F6"
+                    fill="#F8FAFC"
+                    startIndex={0}
+                    endIndex={Math.min(11, completionData.length - 1)}
+                    tickFormatter={() => ''}
+                  />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
