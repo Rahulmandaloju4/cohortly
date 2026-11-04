@@ -26,6 +26,7 @@ def list_courses(
     category: Optional[str] = Query(None, description="Filter by category"),
     difficulty: Optional[str] = Query(None, description="Filter by difficulty: BEGINNER, INTERMEDIATE, ADVANCED"),
     status: Optional[str] = Query(None, description="Filter by status: ACTIVE, ARCHIVED"),
+    search: Optional[str] = Query(None, description="Search by course name, ID, or category"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -39,11 +40,20 @@ def list_courses(
         query = query.filter(Course.difficulty_level == difficulty.upper())
     if status:
         query = query.filter(Course.course_status == status.upper())
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (Course.course_name.ilike(s)) |
+            (Course.course_id.ilike(s)) |
+            (Course.category.ilike(s)) |
+            (Instructor.first_name.ilike(s)) |
+            (Instructor.last_name.ilike(s))
+        )
 
     total = query.count()
     total_pages = (total + page_size - 1) // page_size
 
-    rows = query.order_by(Course.course_name.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    rows = query.order_by(Course.course_id.asc()).offset((page - 1) * page_size).limit(page_size).all()
 
     items = []
     for crs, ifirst, ilast in rows:
