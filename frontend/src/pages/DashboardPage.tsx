@@ -366,21 +366,21 @@ export const DashboardPage: React.FC = () => {
       {/* Actionable Insights & Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quality Anomalies Alert Card */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-1">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-rose-600" />
-              Active Quality Anomalies
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-1 min-w-0 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 min-w-0">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 min-w-0 truncate">
+              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="truncate">Active Quality Anomalies</span>
             </h4>
             <Link
               to="/exceptions"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 shrink-0 whitespace-nowrap ml-2"
             >
-              Investigate <ArrowUpRight className="w-3 h-3" />
+              Investigate <ArrowUpRight className="w-3 h-3 shrink-0" />
             </Link>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 min-w-0 flex-1">
             {metrics?.active_anomalies_breakdown && metrics.active_anomalies_breakdown.length > 0 ? (
               metrics.active_anomalies_breakdown.map((item: any) => {
                 const isCritical = item.severity === 'CRITICAL';
@@ -391,16 +391,18 @@ export const DashboardPage: React.FC = () => {
                 const textDescClass = isCritical ? 'text-rose-700' : isHigh ? 'text-amber-700' : 'text-blue-700';
 
                 return (
-                  <div key={item.issue_type} className={`p-3 rounded-lg border flex items-start space-x-3 ${bgClass}`}>
-                    <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dotClass}`}></span>
-                    <div className="text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-bold ${textHeaderClass}`}>{item.issue_type}</span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/80 border border-slate-200 text-slate-700">
+                  <div key={item.issue_type} className={`p-3 rounded-lg border flex items-start space-x-3 ${bgClass} min-w-0 overflow-hidden`}>
+                    <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${dotClass}`}></span>
+                    <div className="text-xs min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <span className={`font-bold text-[11px] sm:text-xs leading-tight ${textHeaderClass} min-w-0 break-words [overflow-wrap:anywhere]`}>
+                          {item.issue_type}
+                        </span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/90 border border-slate-200 text-slate-700 shrink-0 whitespace-nowrap tabular-nums">
                           {item.count} {item.count === 1 ? 'record' : 'records'}
                         </span>
                       </div>
-                      <p className={`${textDescClass} mt-0.5`}>
+                      <p className={`${textDescClass} mt-1 text-[11px] leading-relaxed break-words [overflow-wrap:anywhere]`}>
                         {item.description}
                       </p>
                     </div>
@@ -409,7 +411,7 @@ export const DashboardPage: React.FC = () => {
               })
             ) : (
               <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100 text-center text-xs text-emerald-800">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1 shrink-0" />
                 <span className="font-semibold">All Anomalies Resolved</span>
                 <p className="text-emerald-600 text-[11px] mt-0.5">Platform relational integrity is currently 100% clean.</p>
               </div>
@@ -418,43 +420,47 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* At-Risk Learner Summary */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-2">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
-              Learner Retention & Early Warning Signals
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-2 min-w-0 flex flex-col">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 min-w-0">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 min-w-0 truncate">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="truncate">Learner Retention & Early Warning Signals</span>
             </h4>
             <Link
               to="/learners"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 shrink-0 whitespace-nowrap ml-2"
             >
-              View All Directory <ArrowUpRight className="w-3 h-3" />
+              View All Directory <ArrowUpRight className="w-3 h-3 shrink-0" />
             </Link>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="text-xs font-semibold text-slate-800 flex items-center justify-between">
-                <span>Inactivity Threshold</span>
-                <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
-                  &gt; 14 Days Idle
-                </span>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 min-w-0 flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-semibold text-slate-800 flex items-center justify-between gap-2 min-w-0">
+                  <span className="truncate">Inactivity Threshold</span>
+                  <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold shrink-0 whitespace-nowrap">
+                    &gt; 14 Days Idle
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed break-words [overflow-wrap:anywhere]">
+                  Learners with active enrollments who logged zero interactions in the last 14 days. Early automated intervention increases graduation retention by 34%.
+                </p>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
-                Learners with active enrollments who logged zero interactions in the last 14 days. Early automated intervention increases graduation retention by 34%.
-              </p>
             </div>
 
-            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="text-xs font-semibold text-slate-800 flex items-center justify-between">
-                <span>Assessment Deficiencies</span>
-                <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
-                  Score &lt; 70.0%
-                </span>
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 min-w-0 flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-semibold text-slate-800 flex items-center justify-between gap-2 min-w-0">
+                  <span className="truncate">Assessment Deficiencies</span>
+                  <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold shrink-0 whitespace-nowrap">
+                    Score &lt; 70.0%
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed break-words [overflow-wrap:anywhere]">
+                  Learners who failed midterm technical assessments and have remaining attempt allowances to resubmit prior to final outcome evaluation.
+                </p>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
-                Learners who failed midterm technical assessments and have remaining attempt allowances to resubmit prior to final outcome evaluation.
-              </p>
             </div>
           </div>
         </div>
