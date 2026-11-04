@@ -25,7 +25,7 @@ Cohortly/
 |   |   |-- generators/     # Deterministic PRNG generator (Seed 20261022 + Ref Clock)
 |   |   |-- validators/     # 15-point cross-entity relational validator (CHK-01 to CHK-15)
 |   |   |-- eval/           # Decoupled ground-truth evaluation benchmark harness
-|   |-- tests/              # 40 automated Pytest verification tests
+|   |-- tests/              # 205 automated Pytest verification tests across 17 modules
 |-- data/
 |   |-- generated/          # SQLite database storage (cohortly.db)
 |   |-- ground_truth/       # Isolated ground-truth anomaly ledgers (anomalies.json)
@@ -91,8 +91,8 @@ Cohortly/
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Recharts, React Router, Lucide Icons.
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2.0, Pydantic v2, SQLite (WAL mode).
 - **Data Engineering**: Deterministic synthetic generation, streaming RFC 4180 CSV / JSON serialization.
-- **Testing**: Pytest (46 tests, 100% pass rate).
-- **Security & RBAC**: Role-Based Access Control via `X-Demo-Role` header (`PLATFORM_ADMIN`, `ACADEMIC_ADMIN`, `INSTRUCTOR`, `SUPPORT_STAFF`, `LEARNER`).
+- **Testing**: Pytest (205 tests across 17 test modules, 100% pass rate).
+- **Security & RBAC**: Role-Based Access Control via `X-Demo-Role` and `X-Demo-Learner-Id` headers (`PLATFORM_ADMIN`, `ACADEMIC_ADMIN`, `INSTRUCTOR`, `SUPPORT_STAFF`, `LEARNER`) with pre-query ownership enforcement and demo security disclaimers.
 
 ---
 
@@ -181,7 +181,7 @@ Precision: 100.0% | Recall: 100.0% | F1 Score: 100.0% (8 TP | 0 FP | 0 FN)
 
 ## Automated Test Suite
 
-Run the full 46-test Pytest matrix:
+Run the full 205-test Pytest matrix across all 17 test modules:
 
 ```bash
 pytest backend/tests/ -v

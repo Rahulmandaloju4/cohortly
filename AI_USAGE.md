@@ -23,7 +23,7 @@ In accordance with Section 17 of the YottaFlex AI engineering challenge, this do
 2. **Two-Tier Deduplication & Anomaly Detection Queries**:
    - Structured pure relational SQL queries for exact duplicate grouping (`idempotency_key`), near-duplicate retention, unenrolled activity detection, and timezone conversion matching.
 3. **Automated Pytest Matrix**:
-   - Generated 40 automated unit and integration tests across 13 test suites covering edge cases, boundary conditions, and contract assertions.
+   - Generated 205 automated unit and integration tests across 17 test modules covering edge cases, boundary conditions, and contract assertions.
 4. **React Enterprise Frontend**:
    - Implemented 8 comprehensive UI pages featuring Recharts multi-axis charts, dark navy navigation, interactive demo role switcher, slide-over inspection drawers, and status triage workflows.
 
@@ -47,6 +47,8 @@ During the iterative engineering process, the following critical design flaws we
 | **10** | Validation count discrepancy (13 vs 15). | **Inconsistency**: Architecture and validator checks cited different numbers of checks. | Standardized on 15-point cross-entity validation (CHK-01 to CHK-15) across all schemas, APIs, and docs. |
 | **11** | Asymmetric WALER eligibility rules between numerator and denominator. | **Mathematical violation (WALER > 100%)**: Denominator counted current `ACTIVE` learners while numerator counted events from any enrolled learner, leading to WALER = 106.83%. | Unified eligibility logic in `backend/app/analytics/engagement.py` so numerator is a strict subset of denominator, mathematically bounding $0.0\% \le \text{WALER} \le 100.0\%$. |
 | **12** | Filtering historical engagement periods using current learner status (`l.learner_status = 'ACTIVE'`). | **Survivorship bias & retroactive exclusion**: Erased learners from historical weeks if their account status subsequently transitioned to INACTIVE or completed. | Implemented point-in-time lifecycle evaluation using immutable milestones: `registration_date`, `enrolled_at`, `dropped_at`, and `completed_at`. |
+| **13** | Ambiguous RBAC access on `/api/exceptions` and cross-learner profile leakage. | **Data privacy violation & permission conflicts**: Initially excluded instructors from triage, and allowed learners to query other learners' profiles/activities. | Granted both INSTRUCTOR and SUPPORT_STAFF triage access, while strictly locking LEARNER to self-service ownership (`verify_learner_ownership`) returning HTTP 403 on URL tampering. |
+| **14** | Concurrent audit pipeline disk I/O collisions in SQLite. | **Multi-threaded locking failures**: Concurrent unclosed DBAPI cursors collided with WAL auto-checkpoints during heavy table scans over 2M records. | Hardened engine with `busy_timeout=30000`, wrapped all cursor iterations in `try...finally: cursor.close()`, optimized `CHK-11` query to 5ms, and established atomic `.tmp` cache versioning. |
 
 ---
 
@@ -58,9 +60,9 @@ During the iterative engineering process, the following critical design flaws we
 2. **Deterministic Bitwise Reproducibility Verification**:
    - Executed `scripts/reproduce.py` with seed `20261022` to assert bitwise identical SHA-256 checksums across all 13 relational tables in dual-generation runs.
 3. **Automated Testing**:
-   - Executed full 46-test Pytest matrix on Python 3.11 with zero mocked database responses (100% pass rate).
+   - Executed full 205-test Pytest matrix across 17 modules on Python 3.11 with zero mocked database responses (100% pass rate).
 4. **End-to-End Full-Scale Verification**:
-   - Generated the complete production profile (20,000 learners, 500 courses, 100,000 enrollments, 2,000,007 activity events, 127,610 attempts, 100,001 outcomes) in 2,066s (`cohortly.db`, 1.65 GB).
+   - Generated the complete production profile (20,000 learners, 500 courses, 100,000 enrollments, 2,000,007 activity events, 127,610 attempts, 100,001 outcomes) in 2,066s (`cohortly.db`, 1.899 GB / 1,899,036,672 bytes).
    - Executed full 15-point cross-entity relational and lifecycle validation (`CHK-01` to `CHK-15`): 12 PASSED, 3 expected tracked WARNINGs, 0 FAILED.
    - Verified FastAPI backend OpenAPI docs on port 8000 and React Vite frontend build (`tsc && vite build`) with 0 errors across all 8 core pages and 5 demo roles.
 5. **Decoupled Evaluation Benchmark**:

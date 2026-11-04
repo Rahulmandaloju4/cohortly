@@ -28,8 +28,8 @@ This document explicitly enumerates the domain assumptions, modeling choices, ed
 1. **Local SQLite Engine**:
    - The platform uses SQLite with WAL mode and memory cache pragmas. While benchmarked to handle 2,000,000 events locally, high-concurrency production deployments would transition to PostgreSQL or Amazon Aurora.
 2. **Demo Role Context & Security Limitations**:
-   - Role switching is powered by client-side toggling and server-side `X-Demo-Role` header validation for demonstration simplicity.
-   - It does **not** provide cryptographic signature verification, password hashing, session tokens, or token revocation. Production deployment would integrate enterprise OAuth2 / OpenID Connect (OIDC) JWT tokens.
+   - Role switching and learner context are transmitted via client-controlled HTTP headers (`X-Demo-Role` and `X-Demo-Learner-Id`) strictly for local UI evaluation and assessment ergonomics.
+   - While the backend validates ownership (`verify_learner_ownership`) to prevent accidental URL tampering within the active demo session, client-controlled headers do **not** constitute tamper-proof production authentication. An attacker able to craft HTTP headers could impersonate identities. Enterprise production deployments require cryptographically signed, server-verified OAuth2 / OpenID Connect (OIDC) JWT claims issued by an institutional identity provider.
 3. **Near-Duplicate Analytics Inclusion Policy**:
    - Exact duplicates (matching `idempotency_key`) are automatically excluded from engagement metrics.
    - Near-duplicates ($\le 5.0\text{s}$ delta) are flagged as candidates in the Exceptions ledger for investigator review, but **are NOT automatically excluded** from engagement calculations to avoid undercounting legitimate rapid interactions.
