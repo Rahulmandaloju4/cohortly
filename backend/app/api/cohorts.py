@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/cohorts", tags=["Cohorts"])
     "",
     response_model=List[CohortListItem],
     summary="List all cohorts with enrollment and completion statistics",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF, Roles.LEARNER))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def list_cohorts(db: Session = Depends(get_db)):
     """Retrieves all learning cohorts with enrollment counts and graduation percentages."""
@@ -69,7 +69,7 @@ def list_cohorts(db: Session = Depends(get_db)):
     "/{cohort_id}/analytics",
     response_model=CohortAnalytics,
     summary="Get cohort-specific engagement and risk breakdown",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def get_cohort_analytics(
     cohort_id: str = Path(..., description="Target Cohort ID"),
@@ -131,7 +131,7 @@ def get_cohort_analytics(
     "/compare",
     response_model=CohortComparisonResponse,
     summary="Compare 2 or more cohorts across normalized timelines",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def compare_cohorts(
     cohort_ids: List[str] = Query(..., description="List of cohort IDs to compare"),
@@ -187,3 +187,60 @@ def compare_cohorts(
         ))
 
     return CohortComparisonResponse(cohorts=cohort_items)
+
+
+@router.post(
+    "/compare",
+    response_model=CohortComparisonResponse,
+    summary="Compare 2 or more cohorts across normalized timelines (POST)",
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
+)
+def compare_cohorts_post(
+    cohort_ids: List[str],
+    db: Session = Depends(get_db)
+):
+    """POST variant for normalized multi-cohort comparison accepting JSON list of cohort IDs."""
+    return compare_cohorts(cohort_ids=cohort_ids, db=db)
+
+
+@router.get(
+    "/{cohort_id}",
+    response_model=CohortListItem,
+    summary="Get single cohort detail by ID",
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
+)
+def get_cohort_detail(
+    cohort_id: str = Path(..., description="Target Cohort ID"),
+    db: Session = Depends(get_db)
+):
+    """Retrieves metadata and enrollment stats for a specific cohort."""
+    coh = db.query(Cohort).filter(Cohort.cohort_id == cohort_id).first()
+    if not coh:
+        raise HTTPException(status_code=404, detail=f"Cohort '{cohort_id}' not found.")
+
+    today = date(2026, 10, 22)
+    total = db.query(func.count(Enrollment.enrollment_id)).filter(Enrollment.cohort_id == coh.cohort_id).scalar() or 0
+    comp = db.query(func.count(Enrollment.enrollment_id)).filter(
+        Enrollment.cohort_id == coh.cohort_id,
+        Enrollment.enrollment_status == "COMPLETED"
+    ).scalar() or 0
+    rate = round((comp / total) * 100.0, 2) if total > 0 else 0.0
+
+    if coh.start_date > today:
+        status = "UPCOMING"
+    elif coh.end_date < today:
+        status = "CONCLUDED"
+    else:
+        status = "ACTIVE"
+
+    return CohortListItem(
+        cohort_id=coh.cohort_id,
+        cohort_name=coh.cohort_name,
+        region=coh.region,
+        program_type=coh.program_type,
+        start_date=coh.start_date.isoformat(),
+        end_date=coh.end_date.isoformat(),
+        total_enrollments=total,
+        completion_rate=rate,
+        status=status,
+    )

@@ -30,6 +30,9 @@ import {
   getCohortAnalytics,
   compareCohorts,
 } from '../services/api';
+import { useRole } from '../context/RoleContext';
+import { AccessRestricted } from '../components/AccessRestricted';
+import { classifyApiError } from '../utils/errors';
 
 const COHORT_COLORS = [
   '#2563EB', // blue
@@ -41,9 +44,11 @@ const COHORT_COLORS = [
 ];
 
 export const CohortsPage: React.FC = () => {
+  const { role } = useRole();
   const [cohorts, setCohorts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRestricted, setIsRestricted] = useState<boolean>(false);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -63,8 +68,14 @@ export const CohortsPage: React.FC = () => {
   const [showComparisonModal, setShowComparisonModal] = useState<boolean>(false);
 
   useEffect(() => {
+    if (role === 'LEARNER') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
+    setIsRestricted(false);
     fetchCohorts();
-  }, []);
+  }, [role]);
 
   const fetchCohorts = async () => {
     try {
@@ -74,7 +85,12 @@ export const CohortsPage: React.FC = () => {
       setCohorts(data || []);
     } catch (err: any) {
       console.error('Failed to load cohorts', err);
-      setError('Unable to load cohort list. Please verify backend status.');
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -153,6 +169,10 @@ export const CohortsPage: React.FC = () => {
     }
     return point;
   });
+
+  if (isRestricted) {
+    return <AccessRestricted />;
+  }
 
   return (
     <div className="space-y-6">

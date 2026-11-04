@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/exceptions", tags=["Exceptions"])
     "",
     response_model=PaginatedResponse[ExceptionListItem],
     summary="List detected exceptions and anomalies",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.SUPPORT_STAFF))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def list_exceptions(
     severity: Optional[str] = Query(None, description="Filter by severity: LOW, MEDIUM, HIGH, CRITICAL"),
@@ -75,7 +75,7 @@ def list_exceptions(
     "/{exception_id}",
     response_model=ExceptionDetail,
     summary="Get exception inspection details with JSON evidence",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.SUPPORT_STAFF))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def get_exception_detail(
     exception_id: str = Path(..., description="Target Exception ID"),
@@ -105,12 +105,13 @@ def get_exception_detail(
     "/{exception_id}/status",
     response_model=MessageResponse,
     summary="Update exception triage status with immutable audit logging",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.SUPPORT_STAFF))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def update_exception_status(
     payload: ExceptionStatusUpdate,
     exception_id: str = Path(..., description="Target Exception ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_role: str = Depends(get_current_role)
 ):
     """Transitions anomaly resolution status and appends an immutable entry to state_history."""
     exc = db.query(ExceptionRecord).filter(ExceptionRecord.exception_id == exception_id).first()
@@ -138,7 +139,7 @@ def update_exception_status(
         previous_state=prev_state,
         new_state=new_state,
         changed_at=now,
-        actor_role="SUPPORT_STAFF",
+        actor_role=current_role,
         actor_id=payload.actor_id or "DEMO-USER",
         reason=payload.reason,
     )

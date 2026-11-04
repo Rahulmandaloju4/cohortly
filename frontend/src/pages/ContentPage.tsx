@@ -30,22 +30,38 @@ import {
   getContentUsageAnalytics,
   getCourseAnalytics,
 } from '../services/api';
+import { useRole } from '../context/RoleContext';
+import { AccessRestricted } from '../components/AccessRestricted';
+import { classifyApiError } from '../utils/errors';
 
 export const ContentPage: React.FC = () => {
+  const { role } = useRole();
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [usageItems, setUsageItems] = useState<any[]>([]);
   const [courseAnalytics, setCourseAnalytics] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRestricted, setIsRestricted] = useState<boolean>(false);
 
   useEffect(() => {
+    if (role === 'SUPPORT_STAFF' || role === 'LEARNER') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
+    setIsRestricted(false);
     loadCourses();
-  }, []);
+  }, [role]);
 
   useEffect(() => {
+    if (role === 'SUPPORT_STAFF' || role === 'LEARNER') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
     loadContentData();
-  }, [selectedCourseId]);
+  }, [selectedCourseId, role]);
 
   const loadCourses = async () => {
     try {
@@ -54,8 +70,12 @@ export const ContentPage: React.FC = () => {
       if (data.items?.length > 0 && !selectedCourseId) {
         setSelectedCourseId(data.items[0].course_id);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load courses for content selector', err);
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      }
     }
   };
 
@@ -71,7 +91,12 @@ export const ContentPage: React.FC = () => {
       setCourseAnalytics(analyticsData);
     } catch (err: any) {
       console.error('Failed to load content analytics', err);
-      setError('Unable to load content analytics. Please verify backend connection.');
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -114,6 +139,10 @@ export const ContentPage: React.FC = () => {
     estMins: item.estimated_duration_minutes,
     actMins: item.avg_session_duration_minutes,
   }));
+
+  if (isRestricted) {
+    return <AccessRestricted />;
+  }
 
   return (
     <div className="space-y-6">

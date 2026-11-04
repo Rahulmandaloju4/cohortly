@@ -411,8 +411,8 @@ def generate_dataset(
     # ---------------------------------------------------------
     # STEP 9: Activity Events (Streaming / Chunked)
     # ---------------------------------------------------------
-    activity_events_data = []
-    near_duplicate_candidates = []
+    events_generated_count = 0
+    near_duplicate_count = 0
     evt_counter = 1
     
     # We distribute events across active and completed enrollments
@@ -453,10 +453,10 @@ def generate_dataset(
                 tz, local_d.isoformat(), session_id, device, "REALTIME",
                 ingestion_ts.isoformat(), idemp
             )
-            activity_events_data.append(record)
+            events_generated_count += 1
             batch_to_insert.append(record)
 
-    while len(activity_events_data) < n_events:
+    while events_generated_count < n_events:
         enr = rng.choice(active_or_comp_enrs)
         enr_id = enr[0]
         lid = enr[1]
@@ -494,7 +494,7 @@ def generate_dataset(
             tz, local_d.isoformat(), session_id, device, sync_mode,
             ingestion_ts.isoformat(), idemp
         )
-        activity_events_data.append(record)
+        events_generated_count += 1
         batch_to_insert.append(record)
 
         # Inject potential near-duplicates (~1% of stream: same session & context within 2-4 seconds)
@@ -510,9 +510,9 @@ def generate_dataset(
                 tz, near_dup_local.isoformat(), session_id, device, sync_mode,
                 near_dup_ingest.isoformat(), near_idemp
             )
-            activity_events_data.append(near_rec)
+            events_generated_count += 1
             batch_to_insert.append(near_rec)
-            near_duplicate_candidates.append(near_rec)
+            near_duplicate_count += 1
 
         if len(batch_to_insert) >= chunk_size:
             cursor.executemany(
@@ -534,7 +534,7 @@ def generate_dataset(
         events_inserted += len(batch_to_insert)
 
     if not quiet:
-        print(f"[OK] Generated and Inserted {events_inserted} Activity Events (including {len(near_duplicate_candidates)} near-duplicate candidates)")
+        print(f"[OK] Generated and Inserted {events_inserted} Activity Events (including {near_duplicate_count} near-duplicate candidates)")
 
     # ---------------------------------------------------------
     # STEP 10: Assessment Attempts

@@ -45,6 +45,8 @@ During the iterative engineering process, the following critical design flaws we
 | **8** | Automated exclusion of potential near-duplicates from analytics. | **False negative on rapid interactions**: Users rapidly clicking 'next' or scrubbing videos were censored from engagement rates. | Refined policy: Exact duplicates are auto-excluded; near-duplicates remain candidates for review and are NOT automatically excluded without review. |
 | **9** | Overwriting entity lifecycle status in place. | **Lost transition audit**: Enrollment and exception resolution changes destroyed transition history. | Introduced append-only `state_history` table recording entity, previous state, new state, actor, and reason. |
 | **10** | Validation count discrepancy (13 vs 15). | **Inconsistency**: Architecture and validator checks cited different numbers of checks. | Standardized on 15-point cross-entity validation (CHK-01 to CHK-15) across all schemas, APIs, and docs. |
+| **11** | Asymmetric WALER eligibility rules between numerator and denominator. | **Mathematical violation (WALER > 100%)**: Denominator counted current `ACTIVE` learners while numerator counted events from any enrolled learner, leading to WALER = 106.83%. | Unified eligibility logic in `backend/app/analytics/engagement.py` so numerator is a strict subset of denominator, mathematically bounding $0.0\% \le \text{WALER} \le 100.0\%$. |
+| **12** | Filtering historical engagement periods using current learner status (`l.learner_status = 'ACTIVE'`). | **Survivorship bias & retroactive exclusion**: Erased learners from historical weeks if their account status subsequently transitioned to INACTIVE or completed. | Implemented point-in-time lifecycle evaluation using immutable milestones: `registration_date`, `enrolled_at`, `dropped_at`, and `completed_at`. |
 
 ---
 
@@ -56,9 +58,11 @@ During the iterative engineering process, the following critical design flaws we
 2. **Deterministic Bitwise Reproducibility Verification**:
    - Executed `scripts/reproduce.py` with seed `20261022` to assert bitwise identical SHA-256 checksums across all 13 relational tables in dual-generation runs.
 3. **Automated Testing**:
-   - Executed full 40-test Pytest matrix on Python 3.11 with zero mocked database responses (100% pass rate in 4.22s).
-4. **End-to-End Local Execution**:
-   - Verified FastAPI backend OpenAPI docs on port 8000.
-   - Verified React Vite frontend build (`tsc && vite build`) with 0 errors across all 8 core pages and 5 demo roles.
+   - Executed full 46-test Pytest matrix on Python 3.11 with zero mocked database responses (100% pass rate).
+4. **End-to-End Full-Scale Verification**:
+   - Generated the complete production profile (20,000 learners, 500 courses, 100,000 enrollments, 2,000,007 activity events, 127,610 attempts, 100,001 outcomes) in 2,066s (`cohortly.db`, 1.65 GB).
+   - Executed full 15-point cross-entity relational and lifecycle validation (`CHK-01` to `CHK-15`): 12 PASSED, 3 expected tracked WARNINGs, 0 FAILED.
+   - Verified FastAPI backend OpenAPI docs on port 8000 and React Vite frontend build (`tsc && vite build`) with 0 errors across all 8 core pages and 5 demo roles.
 5. **Decoupled Evaluation Benchmark**:
-   - Confirmed 100% precision, 100% recall, and 100% F1 score across all 4 anomaly categories against the isolated ground-truth file.
+   - Confirmed 100% precision, 100% recall, and 100% F1 score across all 4 anomaly categories against the isolated ground-truth file (8 True Positives, 0 False Positives, 0 False Negatives).
+

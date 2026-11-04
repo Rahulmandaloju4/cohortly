@@ -179,6 +179,8 @@ class ActivityEvent(Base):
         Index("ix_events_idempotency", "idempotency_key"),
         Index("ix_events_session_near_dup", "learner_id", "course_id", "content_id", "event_type", "session_id"),
         Index("ix_events_utc_date", "event_timestamp_utc"),
+        Index("ix_events_enr_utc", "enrollment_id", "event_timestamp_utc"),
+        Index("ix_events_utc_enr_lrn", "event_timestamp_utc", "enrollment_id", "learner_id"),
     )
 
 

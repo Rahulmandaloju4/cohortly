@@ -18,6 +18,16 @@ from backend.app.models import Learner, Enrollment, Course, Cohort, ContentItem,
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
 
+# In-memory cache for engagement analytics
+_ENGAGEMENT_ANALYTICS_CACHE = None
+
+
+def clear_analytics_cache():
+    """Clears cached analytics breakdowns."""
+    global _ENGAGEMENT_ANALYTICS_CACHE
+    _ENGAGEMENT_ANALYTICS_CACHE = None
+
+
 @router.get(
     "/engagement",
     response_model=EngagementAnalytics,
@@ -26,6 +36,10 @@ router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 )
 def get_engagement_analytics(db: Session = Depends(get_db)):
     """Computes WALER and WAEER with dimensional breakdowns across region, device, and learning mode."""
+    global _ENGAGEMENT_ANALYTICS_CACHE
+    if _ENGAGEMENT_ANALYTICS_CACHE is not None:
+        return _ENGAGEMENT_ANALYTICS_CACHE
+
     w_end = datetime(2026, 10, 22, 0, 0, 0)
     w_start = w_end - timedelta(days=7)
 
@@ -35,14 +49,21 @@ def get_engagement_analytics(db: Session = Depends(get_db)):
     overall_waeer = eng["waeer"]
     total_active_learners = eng["distinct_active_learners"]
 
-    # 2. By Region
+    # 2. By Region (high-performance CTE)
     region_rows = db.execute(text("""
-        SELECT l.region, COUNT(DISTINCT l.learner_id) as total_l,
-               COUNT(DISTINCT CASE WHEN e.event_id IS NOT NULL THEN l.learner_id END) as active_l
+        WITH active_learners AS (
+            SELECT DISTINCT learner_id 
+            FROM activity_events 
+            WHERE event_timestamp_utc >= :w_start 
+              AND event_timestamp_utc < :w_end 
+              AND enrollment_id IS NOT NULL
+        )
+        SELECT 
+            l.region, 
+            COUNT(DISTINCT l.learner_id) AS total_l,
+            COUNT(DISTINCT al.learner_id) AS active_l
         FROM learners l
-        LEFT JOIN activity_events e ON l.learner_id = e.learner_id
-             AND e.event_timestamp_utc >= :w_start AND e.event_timestamp_utc < :w_end
-             AND e.enrollment_id IS NOT NULL
+        LEFT JOIN active_learners al ON l.learner_id = al.learner_id
         WHERE l.learner_status = 'ACTIVE'
         GROUP BY l.region
     """), {"w_start": w_start, "w_end": w_end}).fetchall()
@@ -75,14 +96,21 @@ def get_engagement_analytics(db: Session = Depends(get_db)):
         for r in device_rows
     ]
 
-    # 4. By Learning Mode
+    # 4. By Learning Mode (high-performance CTE)
     mode_rows = db.execute(text("""
-        SELECT l.learning_mode, COUNT(DISTINCT l.learner_id) as total_l,
-               COUNT(DISTINCT CASE WHEN e.event_id IS NOT NULL THEN l.learner_id END) as active_l
+        WITH active_learners AS (
+            SELECT DISTINCT learner_id 
+            FROM activity_events 
+            WHERE event_timestamp_utc >= :w_start 
+              AND event_timestamp_utc < :w_end 
+              AND enrollment_id IS NOT NULL
+        )
+        SELECT 
+            l.learning_mode, 
+            COUNT(DISTINCT l.learner_id) AS total_l,
+            COUNT(DISTINCT al.learner_id) AS active_l
         FROM learners l
-        LEFT JOIN activity_events e ON l.learner_id = e.learner_id
-             AND e.event_timestamp_utc >= :w_start AND e.event_timestamp_utc < :w_end
-             AND e.enrollment_id IS NOT NULL
+        LEFT JOIN active_learners al ON l.learner_id = al.learner_id
         WHERE l.learner_status = 'ACTIVE'
         GROUP BY l.learning_mode
     """), {"w_start": w_start, "w_end": w_end}).fetchall()
@@ -97,13 +125,15 @@ def get_engagement_analytics(db: Session = Depends(get_db)):
         for r in mode_rows
     ]
 
-    return EngagementAnalytics(
+    result = EngagementAnalytics(
         overall_waler=overall_waler,
         overall_waeer=overall_waeer,
         by_region=by_region,
         by_device=by_device,
         by_learning_mode=by_mode,
     )
+    _ENGAGEMENT_ANALYTICS_CACHE = result
+    return result
 
 
 @router.get(

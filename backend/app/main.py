@@ -30,11 +30,14 @@ app.add_middleware(
 
 @app.middleware("http")
 async def demo_role_middleware(request: Request, call_next):
-    """Inspects X-Demo-Role header (defaults to PLATFORM_ADMIN if omitted for demo)."""
+    """Inspects X-Demo-Role and X-Demo-Learner-Id headers (defaults to PLATFORM_ADMIN and LRN-000001 if omitted)."""
     role = request.headers.get("X-Demo-Role", "PLATFORM_ADMIN").upper()
     request.state.role = role
+    learner_id = request.headers.get("X-Demo-Learner-Id", "LRN-000001")
+    request.state.learner_id = learner_id
     response = await call_next(request)
     response.headers["X-Demo-Role-Applied"] = role
+    response.headers["X-Demo-Learner-Id-Applied"] = learner_id
     return response
 
 
@@ -47,6 +50,10 @@ from backend.app.api.assessments import router as assessments_router
 from backend.app.api.analytics import router as analytics_router
 from backend.app.api.exceptions import router as exceptions_router
 from backend.app.api.data import router as data_router
+from backend.app.core.rbac import require_roles, Roles
+from backend.app.core.database import get_db
+from sqlalchemy.orm import Session
+from fastapi import Depends
 
 app.include_router(dashboard_router)
 app.include_router(learners_router)
@@ -56,6 +63,40 @@ app.include_router(assessments_router)
 app.include_router(analytics_router)
 app.include_router(exceptions_router)
 app.include_router(data_router)
+
+
+# Backwards-compatible aliases for /api/audit routes referencing data endpoints
+@app.get("/api/audit/benchmark", tags=["Audit"], dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN))])
+def audit_benchmark_alias(db: Session = Depends(get_db)):
+    """Backwards-compatible alias for GET /api/data/benchmark."""
+    from backend.app.api.data import get_detection_benchmark
+    return get_detection_benchmark(db=db)
+
+
+@app.get("/api/audit/validation-report", tags=["Audit"], dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN))])
+def audit_validation_report_alias(force: bool = False, db: Session = Depends(get_db)):
+    """Backwards-compatible alias for GET /api/data/validation."""
+    from backend.app.api.data import get_data_validation
+    return get_data_validation(force=force, db=db)
+
+
+@app.on_event("startup")
+def prewarm_caches():
+    """Pre-warms dashboard trends on server startup so initial UI loads are instantaneous."""
+    try:
+        from backend.app.core.database import SessionLocal
+        from backend.app.api.dashboard import get_engagement_trend, get_completion_trend
+        from backend.app.api.analytics import get_engagement_analytics
+        db = SessionLocal()
+        try:
+            get_engagement_trend(weeks=6, db=db)
+            get_completion_trend(db=db)
+            get_engagement_analytics(db=db)
+            logger.info("Dashboard trend and analytics caches pre-warmed successfully.")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Dashboard cache pre-warm skipped: {e}")
 
 
 @app.get("/api/health", tags=["System"])

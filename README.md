@@ -91,7 +91,7 @@ Cohortly/
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Recharts, React Router, Lucide Icons.
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2.0, Pydantic v2, SQLite (WAL mode).
 - **Data Engineering**: Deterministic synthetic generation, streaming RFC 4180 CSV / JSON serialization.
-- **Testing**: Pytest (40 tests, 100% pass rate in 4.22s).
+- **Testing**: Pytest (46 tests, 100% pass rate).
 - **Security & RBAC**: Role-Based Access Control via `X-Demo-Role` header (`PLATFORM_ADMIN`, `ACADEMIC_ADMIN`, `INSTRUCTOR`, `SUPPORT_STAFF`, `LEARNER`).
 
 ---
@@ -181,11 +181,12 @@ Precision: 100.0% | Recall: 100.0% | F1 Score: 100.0% (8 TP | 0 FP | 0 FN)
 
 ## Automated Test Suite
 
-Run the full 40-test Pytest matrix:
+Run the full 46-test Pytest matrix:
 
 ```bash
 pytest backend/tests/ -v
 ```
+
 
 ---
 

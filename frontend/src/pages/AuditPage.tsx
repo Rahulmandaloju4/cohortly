@@ -21,14 +21,19 @@ import {
   getDataBenchmark,
   getDataManifest,
 } from '../services/api';
+import { useRole } from '../context/RoleContext';
+import { AccessRestricted } from '../components/AccessRestricted';
+import { classifyApiError } from '../utils/errors';
 
 export const AuditPage: React.FC = () => {
+  const { role } = useRole();
   const [validationReport, setValidationReport] = useState<any | null>(null);
   const [benchmarkScorecard, setBenchmarkScorecard] = useState<any | null>(null);
   const [manifestData, setManifestData] = useState<any | null>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRestricted, setIsRestricted] = useState<boolean>(false);
 
   const [runningAudit, setRunningAudit] = useState<boolean>(false);
   const [runningBenchmark, setRunningBenchmark] = useState<boolean>(false);
@@ -36,23 +41,59 @@ export const AuditPage: React.FC = () => {
 
   useEffect(() => {
     fetchAllAuditData();
-  }, []);
+  }, [role]);
 
   const fetchAllAuditData = async () => {
+    // Audit page is restricted to PLATFORM_ADMIN and ACADEMIC_ADMIN
+    if (role !== 'PLATFORM_ADMIN' && role !== 'ACADEMIC_ADMIN') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const [valRes, benchRes, manRes] = await Promise.all([
-        getDataValidation(),
-        getDataBenchmark().catch(() => null),
-        getDataManifest().catch(() => null),
-      ]);
+      setIsRestricted(false);
+
+      // Resilient sequential loading to prevent SQLite concurrency lockups
+      let valRes = null;
+      try {
+        valRes = await getDataValidation();
+      } catch (valErr: any) {
+        const classified = classifyApiError(valErr);
+        if (classified.isAccessRestricted) {
+          setIsRestricted(true);
+          return;
+        }
+        setError(classified.userMessage);
+        return;
+      }
       setValidationReport(valRes);
+
+      // Next load benchmark scorecard
+      const benchRes = await getDataBenchmark().catch((benchErr: any) => {
+        const classified = classifyApiError(benchErr);
+        if (classified.isAccessRestricted) setIsRestricted(true);
+        return null;
+      });
       setBenchmarkScorecard(benchRes);
+
+      // Finally load table manifest
+      const manRes = await getDataManifest().catch((manErr: any) => {
+        const classified = classifyApiError(manErr);
+        if (classified.isAccessRestricted) setIsRestricted(true);
+        return null;
+      });
       setManifestData(manRes);
     } catch (err: any) {
       console.error('Failed to load validation audit data', err);
-      setError('Unable to load audit report. Ensure backend is active.');
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -61,10 +102,16 @@ export const AuditPage: React.FC = () => {
   const handleRunAudit = async () => {
     setRunningAudit(true);
     try {
-      const data = await getDataValidation();
+      const data = await getDataValidation(true);
       setValidationReport(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Audit execution error', err);
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setRunningAudit(false);
     }
@@ -75,8 +122,14 @@ export const AuditPage: React.FC = () => {
     try {
       const data = await getDataBenchmark();
       setBenchmarkScorecard(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Benchmark execution error', err);
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setRunningBenchmark(false);
     }
@@ -94,6 +147,10 @@ export const AuditPage: React.FC = () => {
         return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
+
+  if (isRestricted) {
+    return <AccessRestricted />;
+  }
 
   return (
     <div className="space-y-6">

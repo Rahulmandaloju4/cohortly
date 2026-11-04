@@ -120,13 +120,21 @@ def scan_and_register_anomalies(db: Session, detection_time: Optional[datetime] 
     # 3. ANOMALY 3: PREMATURE_COMPLETION
     # Enrollment outcome marked COMPLETED despite failing business rules
     # -------------------------------------------------------------
-    current_completed_outcomes = (
-        db.query(CourseOutcome)
-        .filter_by(completion_status="COMPLETED", is_current=True)
-        .all()
-    )
-    for outcome in current_completed_outcomes:
-        eval_result = evaluate_enrollment_completion(db, outcome.enrollment_id)
+    premature_query = text("""
+        SELECT co.outcome_id, co.enrollment_id
+        FROM course_outcomes co
+        JOIN completion_rules cr ON co.completion_rule_id = cr.completion_rule_id
+        WHERE co.completion_status = 'COMPLETED'
+          AND co.is_current = 1
+          AND (
+              co.content_completion_percentage < cr.minimum_content_completion_percentage
+              OR (cr.minimum_assessment_score IS NOT NULL AND co.final_assessment_score < cr.minimum_assessment_score)
+          )
+    """)
+    premature_rows = db.execute(premature_query).fetchall()
+    for row in premature_rows:
+        outcome_id, enr_id = row[0], row[1]
+        eval_result = evaluate_enrollment_completion(db, enr_id)
         if eval_result["decision"] != "COMPLETED":
             exc_id = make_exception_id(exc_counter)
             exc_counter += 1
@@ -135,13 +143,13 @@ def scan_and_register_anomalies(db: Session, detection_time: Optional[datetime] 
                 issue_type="PREMATURE_COMPLETION",
                 severity="CRITICAL",
                 entity_type="COURSE_OUTCOME",
-                entity_id=outcome.outcome_id,
+                entity_id=outcome_id,
                 detected_at=now,
-                description=f"Enrollment {outcome.enrollment_id} marked COMPLETED despite failing completion requirements.",
+                description=f"Enrollment {enr_id} marked COMPLETED despite failing completion requirements.",
                 evidence={
-                    "outcome_id": outcome.outcome_id,
-                    "enrollment_id": outcome.enrollment_id,
-                    "outcome_status": outcome.completion_status,
+                    "outcome_id": outcome_id,
+                    "enrollment_id": enr_id,
+                    "outcome_status": "COMPLETED",
                     "rule_evaluation": eval_result["reason_payload"],
                 },
                 relevant_rule="RULE-COMPL-001: Completion Eligibility Verification",
@@ -154,21 +162,29 @@ def scan_and_register_anomalies(db: Session, detection_time: Optional[datetime] 
     # 4. ANOMALY 4: TIMEZONE_DATE_MISMATCH
     # Stored event_date differs from derived local date for source_timezone
     # -------------------------------------------------------------
-    # Scan events where local date derivation fails
-    # Sample or iterate over events
-    events_to_check = db.query(
-        ActivityEvent.event_id,
-        ActivityEvent.event_timestamp_utc,
-        ActivityEvent.source_timezone,
-        ActivityEvent.event_date
-    ).all()
+    from backend.app.utils.time_utils import derive_local_date_from_utc
+    tz_query = text("""
+        SELECT event_id, event_timestamp_utc, source_timezone, event_date
+        FROM activity_events
+        WHERE event_date != date(event_timestamp_utc)
+           OR strftime('%H', event_timestamp_utc) IN ('00','01','02','03','04','20','21','22','23')
+    """)
+    tz_rows = db.execute(tz_query).fetchall()
 
-    for evt_id, ts_utc, tz_name, stored_date in events_to_check:
-        if not is_timezone_date_consistent(ts_utc, tz_name, stored_date):
+    for evt_id, ts_utc, tz_name, stored_date in tz_rows:
+        if isinstance(ts_utc, str):
+            ts_val = datetime.fromisoformat(ts_utc)
+        else:
+            ts_val = ts_utc
+        if isinstance(stored_date, str):
+            date_val = datetime.strptime(stored_date, "%Y-%m-%d").date()
+        else:
+            date_val = stored_date
+
+        if not is_timezone_date_consistent(ts_val, tz_name, date_val):
             exc_id = make_exception_id(exc_counter)
             exc_counter += 1
-            from backend.app.utils.time_utils import derive_local_date_from_utc
-            true_date = derive_local_date_from_utc(ts_utc, tz_name)
+            true_date = derive_local_date_from_utc(ts_val, tz_name)
             exc = ExceptionRecord(
                 exception_id=exc_id,
                 issue_type="TIMEZONE_DATE_MISMATCH",
@@ -176,12 +192,12 @@ def scan_and_register_anomalies(db: Session, detection_time: Optional[datetime] 
                 entity_type="ACTIVITY_EVENT",
                 entity_id=evt_id,
                 detected_at=now,
-                description=f"Stored local date ({stored_date}) does not match derived date ({true_date}) for {tz_name} at {ts_utc} UTC.",
+                description=f"Stored local date ({date_val}) does not match derived date ({true_date}) for {tz_name} at {ts_val} UTC.",
                 evidence={
                     "event_id": evt_id,
-                    "event_timestamp_utc": str(ts_utc),
+                    "event_timestamp_utc": str(ts_val),
                     "source_timezone": tz_name,
-                    "stored_event_date": str(stored_date),
+                    "stored_event_date": str(date_val),
                     "derived_local_date": str(true_date),
                 },
                 relevant_rule="RULE-ANOMALY-004: Timezone Date Conversion Consistency",
@@ -189,6 +205,7 @@ def scan_and_register_anomalies(db: Session, detection_time: Optional[datetime] 
                 resolution_status="OPEN",
             )
             detected_exceptions.append(exc)
+
 
     # -------------------------------------------------------------
     # 5. Clear and insert detected exceptions

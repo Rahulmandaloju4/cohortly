@@ -439,3 +439,52 @@ def test_anomaly_counts_and_triage_reconciliation():
         )
         reverted_overview = client.get("/api/dashboard/overview", headers=headers).json()
         assert reverted_overview["active_anomaly_count"] == active_count
+
+
+def test_historical_active_learner_not_excluded_by_subsequent_status_change(memory_db):
+    """A learner who was actively enrolled and completed coursework in a historical week
+    must NOT be excluded from that historical week's WALER calculation simply because
+    their current learner_status is subsequently set to INACTIVE or SUSPENDED.
+    """
+    hist_w_start = datetime(2026, 9, 1, 0, 0, 0)
+    hist_w_end = datetime(2026, 9, 8, 0, 0, 0)
+
+    # Learner currently marked INACTIVE
+    learner = Learner(
+        learner_id="LRN-HIST-001",
+        first_name="Historical",
+        last_name="Active",
+        email="hist@example.com",
+        registration_date=date(2026, 8, 15),
+        learner_status="INACTIVE",  # Current status is INACTIVE
+        region="North America",
+        learning_mode="COHORT_BASED",
+        created_at=datetime(2026, 8, 15, 0, 0, 0),
+    )
+    # Enrollment was active during hist_w_start to hist_w_end
+    en = Enrollment(
+        enrollment_id="ENR-HIST-001",
+        learner_id="LRN-HIST-001",
+        course_id="CRS-TEST-001",
+        cohort_id="COH-TEST-001",
+        enrolled_at=datetime(2026, 8, 20, 10, 0, 0),
+        enrollment_status="COMPLETED",
+        expected_completion_date=date(2026, 11, 1),
+        completed_at=datetime(2026, 9, 25, 0, 0, 0),  # Completed later, after historical window
+    )
+    # Event during the historical window
+    evt = make_event(
+        event_id="EVT-HIST-001",
+        learner_id="LRN-HIST-001",
+        enrollment_id="ENR-HIST-001",
+        course_id="CRS-TEST-001",
+        event_timestamp_utc=datetime(2026, 9, 4, 12, 0, 0),
+    )
+    memory_db.add_all([learner, en, evt])
+    memory_db.commit()
+
+    # Calculate engagement for historical week
+    res = calculate_weekly_engagement(memory_db, hist_w_start, hist_w_end)
+    assert res["eligible_learners"] == 1
+    assert res["distinct_active_learners"] == 1
+    assert res["waler"] == 100.0

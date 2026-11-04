@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { getLearners, getLearnerDetail, getLearnerActivity } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { AccessRestricted } from '../components/AccessRestricted';
+import { classifyApiError } from '../utils/errors';
 
 export const LearnersPage: React.FC = () => {
   const { role } = useRole();
@@ -32,6 +34,8 @@ export const LearnersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRestricted, setIsRestricted] = useState(false);
 
   // Selected learner detail drawer
   const [selectedLearnerId, setSelectedLearnerId] = useState<string | null>(null);
@@ -41,11 +45,18 @@ export const LearnersPage: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
+    if (role === 'LEARNER') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
+    setIsRestricted(false);
     fetchLearners();
   }, [page, search, statusFilter, regionFilter, role]);
 
   const fetchLearners = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getLearners({
         page,
@@ -56,8 +67,14 @@ export const LearnersPage: React.FC = () => {
       });
       setLearners(data.items);
       setTotal(data.total);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load learners:', err);
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -93,6 +110,10 @@ export const LearnersPage: React.FC = () => {
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">ON TRACK</span>;
     }
   };
+
+  if (isRestricted) {
+    return <AccessRestricted />;
+  }
 
   return (
     <div className="space-y-6">

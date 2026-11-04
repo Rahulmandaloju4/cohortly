@@ -19,6 +19,9 @@ import {
   triggerDataGeneration,
   getExportUrl,
 } from '../services/api';
+import { useRole } from '../context/RoleContext';
+import { AccessRestricted } from '../components/AccessRestricted';
+import { classifyApiError } from '../utils/errors';
 
 const ALL_TABLES = [
   'instructors',
@@ -37,9 +40,11 @@ const ALL_TABLES = [
 ];
 
 export const GeneratorPage: React.FC = () => {
+  const { role } = useRole();
   const [dataStatus, setDataStatus] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRestricted, setIsRestricted] = useState<boolean>(false);
 
   // Generator Configuration State
   const [profile, setProfile] = useState<'starter' | 'full' | 'custom'>('starter');
@@ -59,8 +64,14 @@ export const GeneratorPage: React.FC = () => {
   const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
 
   useEffect(() => {
+    if (role !== 'PLATFORM_ADMIN' && role !== 'ACADEMIC_ADMIN') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
+    setIsRestricted(false);
     fetchStatus();
-  }, []);
+  }, [role]);
 
   const fetchStatus = async () => {
     try {
@@ -70,7 +81,12 @@ export const GeneratorPage: React.FC = () => {
       setDataStatus(data);
     } catch (err: any) {
       console.error('Failed to load database status', err);
-      setError('Unable to retrieve database status. Verify Platform Admin permissions.');
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -93,6 +109,10 @@ export const GeneratorPage: React.FC = () => {
 
   const handleRunGenerator = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (role !== 'PLATFORM_ADMIN') {
+      alert('Access restricted: Only Platform Administrator can trigger synthetic data generation.');
+      return;
+    }
     setGenerating(true);
     setGenerationResult(null);
     setGenerationError(null);
@@ -125,6 +145,10 @@ export const GeneratorPage: React.FC = () => {
     const url = getExportUrl(exportFormat, exportTable);
     window.open(url, '_blank');
   };
+
+  if (isRestricted) {
+    return <AccessRestricted />;
+  }
 
   return (
     <div className="space-y-6">
@@ -360,8 +384,13 @@ export const GeneratorPage: React.FC = () => {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={generating}
-                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all"
+                disabled={generating || role !== 'PLATFORM_ADMIN'}
+                title={role !== 'PLATFORM_ADMIN' ? 'Generation triggers restricted to Platform Administrator' : undefined}
+                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  role === 'PLATFORM_ADMIN'
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 disabled:opacity-50'
+                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                }`}
               >
                 {generating ? (
                   <>
@@ -371,7 +400,11 @@ export const GeneratorPage: React.FC = () => {
                 ) : (
                   <>
                     <Play className="w-4 h-4" />
-                    <span>Generate Deterministic Dataset</span>
+                    <span>
+                      {role === 'PLATFORM_ADMIN'
+                        ? 'Generate Deterministic Dataset'
+                        : 'Generate Dataset (Platform Admin Only)'}
+                    </span>
                   </>
                 )}
               </button>

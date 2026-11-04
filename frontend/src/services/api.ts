@@ -8,10 +8,12 @@ const api = axios.create({
   },
 });
 
-// Intercept request to inject current demo role header
+// Intercept request to inject current demo role and learner ID headers
 api.interceptors.request.use((config) => {
   const currentRole = localStorage.getItem('cohortly_demo_role') || 'PLATFORM_ADMIN';
   config.headers['X-Demo-Role'] = currentRole;
+  const currentLearnerId = localStorage.getItem('cohortly_demo_learner_id') || 'LRN-000001';
+  config.headers['X-Demo-Learner-Id'] = currentLearnerId;
   return config;
 });
 
@@ -146,13 +148,13 @@ export const getDataStatus = async () => {
   return res.data;
 };
 
-export const getDataValidation = async () => {
-  const res = await api.get('/data/validation');
+export const getDataValidation = async (force: boolean = false) => {
+  const res = await api.get(`/data/validation${force ? '?force=true' : ''}`);
   return res.data;
 };
 
-export const getDataManifest = async () => {
-  const res = await api.get('/data/manifest');
+export const getDataManifest = async (force: boolean = false) => {
+  const res = await api.get(`/data/manifest${force ? '?force=true' : ''}`);
   return res.data;
 };
 

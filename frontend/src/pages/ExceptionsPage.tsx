@@ -20,11 +20,16 @@ import {
   getExceptionDetail,
   updateExceptionStatus,
 } from '../services/api';
+import { useRole } from '../context/RoleContext';
+import { AccessRestricted } from '../components/AccessRestricted';
+import { classifyApiError } from '../utils/errors';
 
 export const ExceptionsPage: React.FC = () => {
+  const { role } = useRole();
   const [exceptions, setExceptions] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRestricted, setIsRestricted] = useState<boolean>(false);
 
   // Filters & Search
   const [severityFilter, setSeverityFilter] = useState<string>('');
@@ -43,8 +48,14 @@ export const ExceptionsPage: React.FC = () => {
   const [triageMessage, setTriageMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (role === 'LEARNER') {
+      setIsRestricted(true);
+      setLoading(false);
+      return;
+    }
+    setIsRestricted(false);
     fetchExceptions();
-  }, [severityFilter, statusFilter]);
+  }, [severityFilter, statusFilter, role]);
 
   const fetchExceptions = async () => {
     try {
@@ -58,7 +69,12 @@ export const ExceptionsPage: React.FC = () => {
       setExceptions(data.items || []);
     } catch (err: any) {
       console.error('Failed to load exceptions', err);
-      setError('Unable to load exceptions. Check role permissions or backend status.');
+      const classified = classifyApiError(err);
+      if (classified.isAccessRestricted) {
+        setIsRestricted(true);
+      } else {
+        setError(classified.userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -159,6 +175,10 @@ export const ExceptionsPage: React.FC = () => {
         return 'bg-slate-100 text-slate-600 border-slate-200';
     }
   };
+
+  if (isRestricted) {
+    return <AccessRestricted />;
+  }
 
   return (
     <div className="space-y-6">

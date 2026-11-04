@@ -11,8 +11,9 @@ import {
   ShieldCheck,
   Sparkles,
   Database,
+  Lock,
 } from 'lucide-react';
-import { useRole } from '../../context/RoleContext';
+import { useRole, DemoRole } from '../../context/RoleContext';
 
 interface NavItem {
   name: string;
@@ -20,21 +21,47 @@ interface NavItem {
   icon: React.ElementType;
   badge?: string;
   badgeColor?: string;
-  allowedRoles?: string[];
+  allowedRoles: DemoRole[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { name: 'Overview Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Learners Directory', path: '/learners', icon: Users },
-  { name: 'Courses & Curriculum', path: '/courses', icon: BookOpen },
-  { name: 'Cohort Intelligence', path: '/cohorts', icon: GraduationCap },
-  { name: 'Content Funnel', path: '/content', icon: BarChart3 },
+  {
+    name: 'Overview Dashboard',
+    path: '/',
+    icon: LayoutDashboard,
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN', 'INSTRUCTOR', 'SUPPORT_STAFF', 'LEARNER'],
+  },
+  {
+    name: 'Learners Directory',
+    path: '/learners',
+    icon: Users,
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN', 'INSTRUCTOR', 'SUPPORT_STAFF'],
+  },
+  {
+    name: 'Courses & Curriculum',
+    path: '/courses',
+    icon: BookOpen,
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN', 'INSTRUCTOR', 'SUPPORT_STAFF', 'LEARNER'],
+  },
+  {
+    name: 'Cohort Intelligence',
+    path: '/cohorts',
+    icon: GraduationCap,
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN', 'INSTRUCTOR', 'SUPPORT_STAFF'],
+  },
+  {
+    name: 'Content Funnel',
+    path: '/content',
+    icon: BarChart3,
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN', 'INSTRUCTOR'],
+  },
   {
     name: 'Exceptions & Triage',
     path: '/exceptions',
     icon: AlertTriangle,
     badge: 'Anomalies',
     badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN', 'INSTRUCTOR', 'SUPPORT_STAFF'],
   },
   {
     name: 'Synthetic Generator',
@@ -42,6 +69,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Cpu,
     badge: 'Seed 20261022',
     badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN'],
   },
   {
     name: 'Quality & Benchmark',
@@ -49,6 +77,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: ShieldCheck,
     badge: '15 Checks',
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    allowedRoles: ['PLATFORM_ADMIN', 'ACADEMIC_ADMIN'],
   },
 ];
 
@@ -97,6 +126,8 @@ export const Sidebar: React.FC = () => {
         </div>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
+          const isRestricted = item.allowedRoles && !item.allowedRoles.includes(role);
+
           return (
             <NavLink
               key={item.path}
@@ -105,23 +136,39 @@ export const Sidebar: React.FC = () => {
               className={({ isActive }) =>
                 `flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all group ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-semibold'
+                    ? isRestricted
+                      ? 'bg-slate-800 text-amber-300/90 border border-amber-500/20 shadow-sm font-semibold'
+                      : 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-semibold'
+                    : isRestricted
+                    ? 'text-slate-400 hover:text-slate-300 hover:bg-slate-800/40'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 }`
               }
             >
               <div className="flex items-center space-x-3 min-w-0">
-                <Icon className="w-4 h-4 flex-shrink-0 transition-transform group-hover:scale-110" />
-                <span className="truncate">{item.name}</span>
-              </div>
-              {item.badge && (
-                <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border tracking-tight ${
-                    item.badgeColor || 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}
-                >
-                  {item.badge}
+                {isRestricted ? (
+                  <Lock className="w-4 h-4 text-slate-400 flex-shrink-0 transition-transform group-hover:scale-110" />
+                ) : (
+                  <Icon className="w-4 h-4 flex-shrink-0 transition-transform group-hover:scale-110" />
+                )}
+                <span className={`truncate ${isRestricted ? 'text-slate-400 group-hover:text-slate-300' : ''}`}>
+                  {item.name}
                 </span>
+              </div>
+              {isRestricted ? (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-700/60 bg-slate-800/60 text-slate-400 flex items-center gap-1">
+                  Restricted
+                </span>
+              ) : (
+                item.badge && (
+                  <span
+                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border tracking-tight ${
+                      item.badgeColor || 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )
               )}
             </NavLink>
           );

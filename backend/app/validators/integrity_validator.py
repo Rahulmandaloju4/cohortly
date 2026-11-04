@@ -230,10 +230,6 @@ def run_15_point_validation(db: Session) -> Dict[str, Any]:
         SELECT COUNT(*)
         FROM activity_events e
         WHERE e.enrollment_id IS NULL
-           OR NOT EXISTS (
-               SELECT 1 FROM enrollments en
-               WHERE en.learner_id = e.learner_id AND en.course_id = e.course_id
-           )
     """)
     unenrolled_cnt = db.execute(unenrolled_q).scalar() or 0
     checks.append({

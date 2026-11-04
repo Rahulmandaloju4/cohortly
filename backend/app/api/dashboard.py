@@ -21,6 +21,17 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 # Reference anchor
 ANCHOR_DATE = date(2026, 10, 22)
 
+# In-memory caches for dashboard trends
+_COMPLETION_TREND_CACHE = None
+_ENGAGEMENT_TREND_CACHE = {}
+
+
+def clear_dashboard_cache():
+    """Clears cached dashboard analytics."""
+    global _COMPLETION_TREND_CACHE, _ENGAGEMENT_TREND_CACHE
+    _COMPLETION_TREND_CACHE = None
+    _ENGAGEMENT_TREND_CACHE = {}
+
 
 @router.get(
     "/overview",
@@ -36,10 +47,10 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     active_cohorts = db.query(func.count(Cohort.cohort_id)).scalar() or 0
     total_enrollments = db.query(func.count(Enrollment.enrollment_id)).scalar() or 0
 
-    # 1. Deduplication summary
-    dedup_metrics = analyze_deduplication(db)
-    raw_events = dedup_metrics["raw_event_count"]
-    dedup_events = dedup_metrics["deduplicated_engagement_count"]
+    # 1. Deduplication summary: instant indexed lookup
+    raw_events = db.execute(text("SELECT COUNT(*) FROM activity_events")).scalar() or 0
+    exact_dup_count = db.execute(text("SELECT COUNT(*) FROM exceptions WHERE issue_type = 'DUPLICATE_ACTIVITY_EVENT'")).scalar() or 0
+    dedup_events = raw_events - exact_dup_count
 
     # 2. Window for WALER & WAEER: 7 days prior to reference anchor
     w_end = datetime(2026, 10, 22, 0, 0, 0)
@@ -113,13 +124,16 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     "/engagement-trend",
     response_model=List[EngagementTrendPoint],
     summary="Get multi-week engagement trends (WALER & WAEER)",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF, Roles.LEARNER))]
 )
 def get_engagement_trend(
     weeks: int = Query(6, ge=2, le=12, description="Number of historical weeks to report"),
     db: Session = Depends(get_db)
 ):
     """Calculates weekly WALER and WAEER progression backwards from the anchor date."""
+    if weeks in _ENGAGEMENT_TREND_CACHE:
+        return _ENGAGEMENT_TREND_CACHE[weeks]
+
     trends = []
     anchor = datetime(2026, 10, 22, 0, 0, 0)
 
@@ -142,6 +156,7 @@ def get_engagement_trend(
             waeer=eng["waeer"],
         ))
 
+    _ENGAGEMENT_TREND_CACHE[weeks] = trends
     return trends
 
 
@@ -149,42 +164,47 @@ def get_engagement_trend(
     "/completion-trend",
     response_model=List[CompletionTrendPoint],
     summary="Get cohort-by-cohort graduation & completion trends",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF, Roles.LEARNER))]
 )
 def get_completion_trend(db: Session = Depends(get_db)):
     """Computes graduation rate and average assessment scores per cohort."""
-    cohorts = db.query(Cohort).order_by(Cohort.start_date.asc()).all()
+    global _COMPLETION_TREND_CACHE
+    if _COMPLETION_TREND_CACHE is not None:
+        return _COMPLETION_TREND_CACHE
+
+    agg_query = text("""
+        SELECT 
+            coh.cohort_id,
+            coh.cohort_name,
+            COUNT(en.enrollment_id) AS total_enrollments,
+            SUM(CASE WHEN en.enrollment_status = 'COMPLETED' THEN 1 ELSE 0 END) AS completed_count,
+            AVG(CASE WHEN co.is_current = 1 AND co.completion_status = 'COMPLETED' THEN co.final_assessment_score ELSE NULL END) AS avg_score
+        FROM cohorts coh
+        LEFT JOIN enrollments en ON coh.cohort_id = en.cohort_id
+        LEFT JOIN course_outcomes co ON en.enrollment_id = co.enrollment_id
+        GROUP BY coh.cohort_id, coh.cohort_name, coh.start_date
+        ORDER BY coh.start_date ASC
+    """)
+    rows = db.execute(agg_query).fetchall()
     results = []
 
-    for coh in cohorts:
-        total = db.query(func.count(Enrollment.enrollment_id)).filter(Enrollment.cohort_id == coh.cohort_id).scalar() or 0
-        completed = db.query(func.count(Enrollment.enrollment_id)).filter(
-            Enrollment.cohort_id == coh.cohort_id,
-            Enrollment.enrollment_status == "COMPLETED"
-        ).scalar() or 0
-
+    for r in rows:
+        cohort_id = r[0]
+        cohort_name = r[1]
+        total = r[2] or 0
+        completed = r[3] or 0
+        avg_score = r[4]
         rate = round((completed / total) * 100.0, 2) if total > 0 else 0.0
-
-        # Average final assessment score for completed learners in this cohort
-        avg_score_q = text("""
-            SELECT AVG(co.final_assessment_score)
-            FROM course_outcomes co
-            JOIN enrollments en ON co.enrollment_id = en.enrollment_id
-            WHERE en.cohort_id = :coh_id
-              AND co.is_current = 1
-              AND co.completion_status = 'COMPLETED'
-              AND co.final_assessment_score IS NOT NULL
-        """)
-        avg_score = db.execute(avg_score_q, {"coh_id": coh.cohort_id}).scalar()
         avg_score_val = round(float(avg_score), 2) if avg_score is not None else None
 
         results.append(CompletionTrendPoint(
-            cohort_id=coh.cohort_id,
-            cohort_name=coh.cohort_name,
+            cohort_id=cohort_id,
+            cohort_name=cohort_name,
             total_enrollments=total,
             completed_count=completed,
             completion_rate=rate,
             avg_score=avg_score_val,
         ))
 
+    _COMPLETION_TREND_CACHE = results
     return results

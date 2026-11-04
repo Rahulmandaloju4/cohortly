@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 import { getDashboardOverview, getEngagementTrends, getCompletionTrends } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { classifyApiError } from '../utils/errors';
 import { Link } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
@@ -60,7 +61,8 @@ export const DashboardPage: React.FC = () => {
       setCompletionData(compRes);
     } catch (err: any) {
       console.error('Failed to load dashboard:', err);
-      setError(err?.response?.data?.detail || 'Failed to load dashboard analytics from backend.');
+      const classified = classifyApiError(err);
+      setError(classified.userMessage);
     } finally {
       setLoading(false);
     }

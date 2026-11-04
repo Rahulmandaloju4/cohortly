@@ -6,12 +6,12 @@ and granular activity audit timelines.
 import json
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Query, HTTPException, Path
+from fastapi import APIRouter, Depends, Query, HTTPException, Path, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func, or_
 
 from backend.app.core.database import get_db
-from backend.app.core.rbac import require_roles, Roles, get_current_role
+from backend.app.core.rbac import require_roles, Roles, get_current_role, verify_learner_ownership
 from backend.app.schemas.common import PaginatedResponse
 from backend.app.schemas.learners import LearnerListItem, LearnerDetail, LearnerActivityItem, EnrollmentOverview
 from backend.app.models import Learner, Enrollment, Course, Cohort, ActivityEvent, CourseOutcome, Attempt
@@ -117,13 +117,15 @@ def list_learners(
     "/{learner_id}",
     response_model=LearnerDetail,
     summary="Get learner profile with enrollments and explainable outcomes",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF, Roles.LEARNER))]
+    dependencies=[Depends(require_roles(*Roles.ALL_ROLES))]
 )
 def get_learner_detail(
+    request: Request,
     learner_id: str = Path(..., description="Target Learner ID"),
     db: Session = Depends(get_db)
 ):
     """Retrieves full learner profile including courses, historical outcomes, and risk factors."""
+    verify_learner_ownership(request, learner_id)
     lrn = db.query(Learner).filter(Learner.learner_id == learner_id).first()
     if not lrn:
         raise HTTPException(status_code=404, detail=f"Learner '{learner_id}' not found.")
@@ -202,9 +204,10 @@ def get_learner_detail(
     "/{learner_id}/activity",
     response_model=PaginatedResponse[LearnerActivityItem],
     summary="Get chronological event stream for a learner",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF, Roles.LEARNER))]
+    dependencies=[Depends(require_roles(*Roles.ALL_ROLES))]
 )
 def get_learner_activity(
+    request: Request,
     learner_id: str = Path(..., description="Target Learner ID"),
     course_id: Optional[str] = Query(None, description="Filter by course"),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
@@ -213,6 +216,7 @@ def get_learner_activity(
     db: Session = Depends(get_db)
 ):
     """Retrieves paginated audit log of learner activity events ordered chronologically."""
+    verify_learner_ownership(request, learner_id)
     query = db.query(ActivityEvent).filter(ActivityEvent.learner_id == learner_id)
 
     if course_id:

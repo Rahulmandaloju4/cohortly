@@ -158,7 +158,7 @@ def get_course_detail(
     "/{course_id}/analytics",
     response_model=CourseAnalytics,
     summary="Get course graduation rates and content drop-off funnel",
-    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR))]
+    dependencies=[Depends(require_roles(Roles.PLATFORM_ADMIN, Roles.ACADEMIC_ADMIN, Roles.INSTRUCTOR, Roles.SUPPORT_STAFF))]
 )
 def get_course_analytics(
     course_id: str = Path(..., description="Target Course ID"),

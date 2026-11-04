@@ -9,7 +9,6 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-
 def calculate_weekly_engagement(
     db: Session,
     w_start: datetime,
@@ -38,72 +37,48 @@ def calculate_weekly_engagement(
         cohort_filter_sql = " AND en.cohort_id = :cohort_id"
         params["cohort_id"] = cohort_id
 
-    # 1. Denominator for WALER: Distinct eligible learners
-    denom_learner_query = text(f"""
-        SELECT COUNT(DISTINCT l.learner_id)
-        FROM learners l
-        JOIN enrollments en ON l.learner_id = en.learner_id
-        WHERE l.learner_status = 'ACTIVE'
-          AND l.registration_date <= :w_end_date
-          AND en.enrolled_at <= :w_end
-          AND (en.dropped_at IS NULL OR en.dropped_at >= :w_start)
-          AND (en.completed_at IS NULL OR en.completed_at >= :w_start)
-          {cohort_filter_sql}
-    """)
-    eligible_learners = db.execute(denom_learner_query, params).scalar() or 0
-
-    # 2. Numerator for WALER: Distinct active eligible learners
-    # Strictly subsets the eligible learners holding an active enrollment in the window
-    num_learner_query = text(f"""
-        SELECT COUNT(DISTINCT e.learner_id)
-        FROM activity_events e
-        JOIN learners l ON e.learner_id = l.learner_id
-        JOIN enrollments en ON e.enrollment_id = en.enrollment_id
-        WHERE e.event_timestamp_utc >= :w_start
-          AND e.event_timestamp_utc < :w_end
-          AND e.enrollment_id IS NOT NULL
-          AND l.learner_status = 'ACTIVE'
-          AND l.registration_date <= :w_end_date
-          AND en.enrolled_at <= :w_end
-          AND (en.dropped_at IS NULL OR en.dropped_at >= :w_start)
-          AND (en.completed_at IS NULL OR en.completed_at >= :w_start)
-          {cohort_filter_sql}
-    """)
-    active_learners = db.execute(num_learner_query, params).scalar() or 0
-
-    # 3. Denominator for WAEER: Distinct eligible enrollments
-    denom_enr_query = text(f"""
-        SELECT COUNT(DISTINCT en.enrollment_id)
+    # 1. Denominators (Combined WALER & WAEER): Distinct eligible learners and enrollments
+    denom_query = text(f"""
+        SELECT 
+            COUNT(DISTINCT l.learner_id) AS eligible_learners,
+            COUNT(DISTINCT en.enrollment_id) AS eligible_enrollments
         FROM enrollments en
         JOIN learners l ON en.learner_id = l.learner_id
-        WHERE l.learner_status = 'ACTIVE'
-          AND l.registration_date <= :w_end_date
+        WHERE l.registration_date <= :w_end_date
           AND en.enrolled_at <= :w_end
           AND (en.dropped_at IS NULL OR en.dropped_at >= :w_start)
           AND (en.completed_at IS NULL OR en.completed_at >= :w_start)
           {cohort_filter_sql}
     """)
-    eligible_enrollments = db.execute(denom_enr_query, params).scalar() or 0
+    denom_row = db.execute(denom_query, params).fetchone()
+    eligible_learners = denom_row[0] if denom_row else 0
+    eligible_enrollments = denom_row[1] if denom_row else 0
 
-    # 4. Numerator for WAEER: Distinct active eligible enrollments
-    num_enr_query = text(f"""
-        SELECT COUNT(DISTINCT e.enrollment_id)
-        FROM activity_events e
-        JOIN learners l ON e.learner_id = l.learner_id
-        JOIN enrollments en ON e.enrollment_id = en.enrollment_id
-        WHERE e.event_timestamp_utc >= :w_start
-          AND e.event_timestamp_utc < :w_end
-          AND e.enrollment_id IS NOT NULL
-          AND l.learner_status = 'ACTIVE'
-          AND l.registration_date <= :w_end_date
+    # 2. Numerators (Combined WALER & WAEER): Active learners and active enrollments
+    # High-performance EXISTS check leveraging ix_events_enr_utc index
+    num_query = text(f"""
+        SELECT 
+            COUNT(DISTINCT en.learner_id) AS active_learners,
+            COUNT(DISTINCT en.enrollment_id) AS active_enrollments
+        FROM enrollments en
+        JOIN learners l ON en.learner_id = l.learner_id
+        WHERE l.registration_date <= :w_end_date
           AND en.enrolled_at <= :w_end
           AND (en.dropped_at IS NULL OR en.dropped_at >= :w_start)
           AND (en.completed_at IS NULL OR en.completed_at >= :w_start)
           {cohort_filter_sql}
+          AND EXISTS (
+              SELECT 1 FROM activity_events e
+              WHERE e.enrollment_id = en.enrollment_id
+                AND e.event_timestamp_utc >= :w_start
+                AND e.event_timestamp_utc < :w_end
+          )
     """)
-    active_enrollments = db.execute(num_enr_query, params).scalar() or 0
+    num_row = db.execute(num_query, params).fetchone()
+    active_learners = num_row[0] if num_row else 0
+    active_enrollments = num_row[1] if num_row else 0
 
-    # 5. Compute rates with true mathematical bounds
+    # 3. Compute rates with true mathematical bounds
     waler = round((active_learners / eligible_learners) * 100.0, 2) if eligible_learners > 0 else 0.0
     waeer = round((active_enrollments / eligible_enrollments) * 100.0, 2) if eligible_enrollments > 0 else 0.0
 

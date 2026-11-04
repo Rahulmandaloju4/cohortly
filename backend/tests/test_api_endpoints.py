@@ -171,11 +171,13 @@ def test_exceptions_endpoints():
     assert "evidence" in det
     assert "relevant_rule" in det
 
-    # Update status -> INVESTIGATING
+    # Update status (toggle status to guarantee state transition)
+    curr_status = det.get("resolution_status", "OPEN")
+    target_status = "INVESTIGATING" if curr_status != "INVESTIGATING" else "RESOLVED"
     patch_res = client.patch(
         f"/api/exceptions/{first_exc}/status",
         headers=headers,
-        json={"status": "INVESTIGATING", "reason": "Triage investigation commenced by QA", "actor_id": "TESTER-01"}
+        json={"status": target_status, "reason": "Triage investigation commenced by QA", "actor_id": "TESTER-01"}
     )
     assert patch_res.status_code == 200
     assert "transitioned" in patch_res.json()["message"]
