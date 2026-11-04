@@ -26,6 +26,9 @@ wheels/
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pyright/
 
 # Node & Frontend
 node_modules/

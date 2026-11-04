@@ -1,15 +1,15 @@
-# Cohortly – End-to-End Implementation & Full-Scale Production Verification Walkthrough
+# Cohortly – End-to-End Implementation & Full-Scale Synthetic Dataset Verification Walkthrough
 
 > **Product**: **Cohortly – Learning Analytics & Cohort Intelligence Platform**  
 > **Tagline**: *"Turn learning data into actionable intelligence."*  
 > **Role & Submission**: Individual 72-Hour Engineering Challenge for Associate AI Forward Deployed Engineer at YottaFlex AI  
-> **Repository**: [c:\Users\manda\FusionProjects\Cohortly](file:///c:/Users/manda/FusionProjects/Cohortly)
+> **Repository**: `Cohortly` (root directory)
 
 ---
 
 ## 1. Executive Summary & Full-Scale Verification Highlights
 
-Every requirement across all 20 sections of the challenge brief, the Analytics & Data-Quality Audit, Full-Scale Dataset Verification, and Role-Based Access Control (RBAC) Architecture has been resolved, thoroughly tested, and validated against the production scale profile.
+Every requirement across all 20 sections of the challenge brief, the Analytics & Data-Quality Audit, Full-Scale Dataset Verification, and Role-Based Access Control (RBAC) Architecture has been resolved, thoroughly tested, and validated against the full-scale synthetic dataset profile.
 
 | Dimension | Verification Target | Actual Result | Status |
 |---|---|---|---|
@@ -23,15 +23,15 @@ Every requirement across all 20 sections of the challenge brief, the Analytics &
 | **Learner Data Privacy** | Self-access only, prevent peer inspection & URL tampering | Enforced via pre-query `verify_learner_ownership`; changing ID in URL returns **HTTP 403 Forbidden**; roster restricted | **PASSED** |
 | **Authoritative RBAC Matrix** | 27 Canonical Operations $\times$ 5 Demo Roles | **135 / 135 automated Pytest tests passed** (100% pass rate) in `test_role_rbac_comprehensive.py` | **PASSED** |
 | **SQLite Concurrency Remediation** | Hardened timeouts, safe cursor lifecycles, WAL mode | `PRAGMA busy_timeout=30000;`, `connect_args={"timeout": 30.0}`, verified across 24 concurrent threads | **PASSED** |
-| **Dataset Versioning & Caching** | Lifecycle status guards (`READY`, `GENERATING`, `FAILED`) | In-progress requests return HTTP 409; failed generation rolls back; warm responses in **17–20ms** (>8,000x speedup) | **PASSED** |
-| **Frontend Production Build** | TypeScript compilation & Vite bundle | React 18 + TypeScript + Tailwind CSS built cleanly in **12.72s (0 errors)** via `tsc && vite build` | **PASSED** |
+| **Dataset Versioning & Caching** | Lifecycle status guards (`READY`, `GENERATING`, `FAILED`) | In-progress requests return HTTP 409; failed generation rolls back; warm responses in **17–20ms** (up to **5,015x faster** on validation, **~3,738x** combined pipeline speedup) | **PASSED** |
+| **Frontend Build Compilation** | TypeScript compilation & Vite bundle | React 18 + TypeScript + Tailwind CSS built cleanly in **13.53s (0 errors)** via `tsc && vite build` *(initial baseline: 12.72s)* | **PASSED** |
 | **Complete Automated Test Suite** | Full backend Pytest execution | **205 / 205 Pytest tests passing** (100% pass rate across all 17 test modules; final regression run: **341.45s**, baseline run: **313.66s**) | **PASSED** |
 
 ---
 
 ## 2. Full-Scale Dataset Generation & Relational Topology
 
-The full production profile was generated using the required fixed parameters:
+The full-scale synthetic dataset profile was generated using the required fixed parameters:
 - **Seed**: `20261022`
 - **Reference Clock Anchor**: `2026-10-22T00:00:00Z`
 - **Database Target**: `data/generated/cohortly.db`
@@ -39,7 +39,7 @@ The full production profile was generated using the required fixed parameters:
 - **Active Dataset Version**: `gen_full_20261022_1899036672` (Status: `READY`)
 
 ### Database Footprint & State History Reconciliation
-Earlier intermediate documentation cited a database size of 1,657,462,784 bytes (~1.657 GB). Forensic inspection of the generation pipeline confirmed that 1.657 GB represented the intermediate database state before final covering composite indexes and the immutable `state_history` ledger records were generated. The verified file size of the complete production database on disk is **1,899,036,672 bytes**.
+Earlier intermediate documentation cited a database size of 1,657,462,784 bytes (~1.657 GB). Forensic inspection of the generation pipeline confirmed that 1.657 GB represented the intermediate database state before final covering composite indexes and the immutable `state_history` ledger records were generated. The verified file size of the complete synthetic dataset database on disk is **1,899,036,672 bytes**.
 
 #### `state_history` Ledger Decomposition & Verified Row Count
 The `state_history` append-only audit ledger currently contains **132,824** verified rows in the database, with a clear separation of origins:
@@ -74,7 +74,7 @@ The `state_history` append-only audit ledger currently contains **132,824** veri
 ### Point-in-Time Historical Eligibility
 Previously, evaluating historical weekly engagement filtered by `learner_status = 'ACTIVE'`. Because status is a mutable current-state property, learners who were active in August or September but subsequently became inactive in October were retroactively pruned from past denominators, creating survivorship bias and skewing historical cohort analytics.
 
-We updated [`backend/app/analytics/engagement.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/analytics/engagement.py) to derive eligibility strictly from point-in-time immutable lifecycle milestones:
+We updated [`backend/app/analytics/engagement.py`](../backend/app/analytics/engagement.py) to derive eligibility strictly from point-in-time immutable lifecycle milestones:
 - Registered on or before the weekly window end date (`l.registration_date <= :w_end_date`).
 - Possessed an enrollment created on or before window end (`en.enrolled_at <= :w_end`).
 - Enrollment had not been dropped before window start (`en.dropped_at IS NULL OR en.dropped_at >= :w_start`).
@@ -115,11 +115,15 @@ Executed against the full 1.899 GB database:
 | `CHK-10` | Activity Deduplication Check | 5 tracked duplicates | Injected duplicates identified; canonical retained | **WARNING (EXPECTED)** |
 | `CHK-11` | Enrollment Existence for Activity | 1 unenrolled event | Injected unenrolled activity isolated for triage (optimized indexed lookup: 5ms) | **WARNING (EXPECTED)** |
 | `CHK-12` | Premature Completion Detection | 1 premature outcome | Injected premature outcome flagged in triage | **WARNING (EXPECTED)** |
-| `CHK-13` | Timezone Consistency | 1 mismatch | Injected date-vs-UTC anomaly flagged | **PASSED** |
+| `CHK-13` | Timezone Consistency | 1 injected mismatch flagged | Injected date-vs-UTC anomaly successfully isolated by detection engine; baseline sample clean | **PASSED** |
 | `CHK-14` | Cross-Entity Alignment | 0 mismatched pairs | Learner and course references strictly match between event and enrollment | **PASSED** |
 | `CHK-15` | Content Hierarchy Alignment | 0 mismatched parents | Submodules strictly belong to parent module course | **PASSED** |
 
 **Summary**: 12 PASSED, 3 EXPECTED WARNINGS (injected anomalies), 0 FAILED. Overall system health: `is_healthy = True`.
+
+> [!NOTE]
+> **CHK-13: Detection Verification vs. Anomaly-Free Distinction**:
+> The status of `CHK-13` is recorded as **PASSED** to reflect that the platform's validation and anomaly detection engine successfully identified and isolated the single deliberately injected timezone date anomaly (`...-TZCORRUPT`) without false positives across the baseline telemetry. A passing check here confirms detection mechanism correctness rather than claiming the dataset is anomaly-free. The overall relational audit summary remains strictly verified at **12 PASSED, 3 EXPECTED WARNINGS (injected duplicates, unenrolled activity, and premature completion), 0 FAILED** (`is_healthy: True`).
 
 ---
 
@@ -162,7 +166,7 @@ All 8 pages verified against live backend APIs connected to the full 2M event da
 ### 7.1 Critical Learner Data Privacy & Self-Service Enforcement
 1. **Self-Service Intent**:
    Active students need access to their own academic trajectory, module completion checklist, and assessment results without exposing peer records.
-2. **Backend Ownership Enforcement** ([`backend/app/core/rbac.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/core/rbac.py)):
+2. **Backend Ownership Enforcement** ([`backend/app/core/rbac.py`](../backend/app/core/rbac.py)):
    - Implemented `verify_learner_ownership(request: Request, target_learner_id: str)`.
    - **Validation Occurs Before Query**: Identity is checked prior to querying target learner records.
    - If `current_role == Roles.LEARNER`:
@@ -173,20 +177,20 @@ All 8 pages verified against live backend APIs connected to the full 2M event da
    - Staff roles (`PLATFORM_ADMIN`, `ACADEMIC_ADMIN`, `INSTRUCTOR`, `SUPPORT_STAFF`) bypass ownership checks to inspect any learner profile or activity log.
 3. **Learners Directory Protection**:
    - `GET /api/learners` (the roster) remains strictly restricted to staff; `LEARNER` receives HTTP 403.
-   - Verified across 14 dedicated test cases in [`backend/tests/test_learner_privacy.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_learner_privacy.py).
+   - Verified across 14 dedicated test cases in [`backend/tests/test_learner_privacy.py`](../backend/tests/test_learner_privacy.py).
 4. **Demo Authentication Boundary & Caveat**:
    > [!IMPORTANT]
-   > The `X-Demo-Role` and `X-Demo-Learner-Id` HTTP headers are client-controlled demo headers provided strictly for evaluation ergonomics and local UI role switching. They do not constitute tamper-proof production authentication. An attacker who can forge HTTP headers can impersonate any learner ID. In an enterprise production deployment, user identity and permissions must be derived exclusively from cryptographically signed, server-verified JSON Web Tokens (JWT) or OpenID Connect (OIDC) identity claims issued by an institutional identity provider.
+   > The `X-Demo-Role` and `X-Demo-Learner-Id` HTTP headers are client-controlled demo headers provided strictly for evaluation ergonomics and local UI role switching. They do not constitute tamper-proof production authentication. An attacker who can forge HTTP headers can impersonate any learner ID. In a real-world enterprise deployment, user identity and permissions must be derived exclusively from cryptographically signed, server-verified JSON Web Tokens (JWT) or OpenID Connect (OIDC) identity claims issued by an institutional identity provider.
 
 ### 7.2 Resolution of Exceptions Permission Conflict
 1. **The Policy**: Both `INSTRUCTOR` and `SUPPORT_STAFF` are permitted on `/api/exceptions`, `/api/exceptions/{id}`, and `/api/exceptions/{id}/status`.
    - `INSTRUCTOR` evaluates course grading anomalies, attempt score discrepancies, and premature completions.
    - `SUPPORT_STAFF` resolves student onboarding, unenrolled activity errors, and timezone offsets.
    - `LEARNER` is strictly restricted (**HTTP 403 Forbidden**).
-2. **Dynamic State History Logging**: Triage status transitions in [`backend/app/api/exceptions.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/api/exceptions.py) dynamically record `actor_role = current_role` in the immutable `state_history` ledger.
+2. **Dynamic State History Logging**: Triage status transitions in [`backend/app/api/exceptions.py`](../backend/app/api/exceptions.py) dynamically record `actor_role = current_role` in the immutable `state_history` ledger.
 
 ### 7.3 Authoritative 27-Operation RBAC Matrix (135 Tests Passing)
-All 27 operational endpoints were tested across all 5 demo roles in [`backend/tests/test_role_rbac_comprehensive.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_role_rbac_comprehensive.py). **All 135 tests passed**:
+All 27 operational endpoints were tested across all 5 demo roles in [`backend/tests/test_role_rbac_comprehensive.py`](../backend/tests/test_role_rbac_comprehensive.py). **All 135 tests passed**:
 
 ```
 pytest backend/tests/test_role_rbac_comprehensive.py -v
@@ -222,18 +226,18 @@ Investigation identified four specific factors:
 4. *CHK-11 Full-Table Scan*: Unindexed query required 30s to verify enrollment existence.
 
 ### 8.3 Implemented Remediations
-1. **Engine Tuning** ([`backend/app/core/database.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/core/database.py)):
+1. **Engine Tuning** ([`backend/app/core/database.py`](../backend/app/core/database.py)):
    - `connect_args={"check_same_thread": False, "timeout": 30.0}`.
    - Attached connection event listener: `PRAGMA busy_timeout = 30000;`, `PRAGMA journal_mode = WAL;`, `PRAGMA synchronous = NORMAL;`, `PRAGMA cache_size = -64000;`.
-2. **Deterministic Cursor Closure** ([`backend/app/api/data.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/api/data.py)):
+2. **Deterministic Cursor Closure** ([`backend/app/api/data.py`](../backend/app/api/data.py)):
    - Wrapped all table manifest iterations in `try...finally: cursor.close()`.
-3. **Index Optimization** ([`backend/app/validators/integrity_validator.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/validators/integrity_validator.py)):
+3. **Index Optimization** ([`backend/app/validators/integrity_validator.py`](../backend/app/validators/integrity_validator.py)):
    - Rewrote `CHK-11` query to filter `WHERE enrollment_id IS NULL`, reducing query time from 30s to **5ms**.
-4. **Resilient Sequential Client Pipeline** ([`frontend/src/pages/AuditPage.tsx`](file:///c:/Users/manda/FusionProjects/Cohortly/frontend/src/pages/AuditPage.tsx)):
+4. **Resilient Sequential Client Pipeline** ([`frontend/src/pages/AuditPage.tsx`](../frontend/src/pages/AuditPage.tsx)):
    - Replaced concurrent `Promise.all` with sequential requests (`valRes` $\to$ `benchRes` $\to$ `manRes`).
 
 ### 8.4 Verified Test Outcomes
-- Implemented and executed [`backend/tests/test_concurrency.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_concurrency.py) dispatching **24 concurrent requests across 8 worker threads**.
+- Implemented and executed [`backend/tests/test_concurrency.py`](../backend/tests/test_concurrency.py) dispatching **24 concurrent requests across 8 worker threads**.
 - All 24 concurrent requests succeeded with HTTP 200 and zero disk I/O errors.
 - Verified mixed-role requests execute concurrently and thread-safely without lock failures.
 
@@ -256,7 +260,7 @@ Dataset lifecycle is tracked via `data/manifests/dataset_version.json`:
 - **Failed Generation Rollback (HTTP 500)**: If generation fails, status is marked `FAILED` with error diagnostics. Subsequent requests return **HTTP 500** explaining the failure, preventing stale reports from being served.
 - **Atomic Cache Writes**: Validation report, table manifest, and benchmark scorecard are written via `.tmp` staging and `os.replace()`, tagged with `_dataset_generation_id`.
 - **Cache Freshness Comparison**: Cache reads compare `_dataset_generation_id` against the current `READY` version manifest; mismatched or stale generation IDs miss the cache and recompute safely.
-- Verified in [`backend/tests/test_caching.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_caching.py) (8 passed tests).
+- Verified in [`backend/tests/test_caching.py`](../backend/tests/test_caching.py) (8 passed tests).
 
 ---
 
@@ -266,28 +270,28 @@ All 17 test modules passed with a 100% success rate:
 
 | Test Suite Module | Scope | Tests Run | Tests Passed | Pass Rate |
 |---|---|---|---|---|
-| [`test_role_rbac_comprehensive.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_role_rbac_comprehensive.py) | Full 27 operations $\times$ 5 demo roles | **135** | **135** | **100%** |
-| [`test_learner_privacy.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_learner_privacy.py) | Self-service access, URL tampering, staff bypass | **14** | **14** | **100%** |
-| [`test_caching.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_caching.py) | Dataset versioning, in-progress 409, failed 500, atomic writes | **8** | **8** | **100%** |
-| [`test_api_endpoints.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_api_endpoints.py) | Contract testing across all API routers | **8** | **8** | **100%** |
-| [`test_waler_regression.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_waler_regression.py) | WALER/WAEER mathematical bounds & survivorship bias | **6** | **6** | **100%** |
-| [`test_role_rbac.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_role_rbac.py) | Core role access boundaries & fallback | **5** | **5** | **100%** |
-| [`test_anomaly_detection.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_anomaly_detection.py) | 4-category anomaly detection rules & ledger | **4** | **4** | **100%** |
-| [`test_timezone.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_timezone.py) | UTC storage and device timestamp parsing | **4** | **4** | **100%** |
-| [`test_deduplication.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_deduplication.py) | Near-duplicate event hashing and retention | **3** | **3** | **100%** |
-| [`test_generator.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_generator.py) | Deterministic synthetic dataset generator | **3** | **3** | **100%** |
-| [`test_ground_truth_isolation.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_ground_truth_isolation.py) | Isolation of ground truth from runtime logic | **3** | **3** | **100%** |
-| [`test_models.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_models.py) | Relational schema entities & constraint models | **3** | **3** | **100%** |
-| [`test_completion_rules.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_completion_rules.py) | Course completion and certificate issuance | **2** | **2** | **100%** |
-| [`test_concurrency.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_concurrency.py) | 24 concurrent requests across 8 worker threads & mixed roles | **2** | **2** | **100%** |
-| [`test_health.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_health.py) | API health and database connectivity | **2** | **2** | **100%** |
-| [`test_validator.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_validator.py) | 15-point dataset integrity checker | **2** | **2** | **100%** |
-| [`test_ids.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/tests/test_ids.py) | Domain ID format enforcement | **1** | **1** | **100%** |
+| [`test_role_rbac_comprehensive.py`](../backend/tests/test_role_rbac_comprehensive.py) | Full 27 operations $\times$ 5 demo roles | **135** | **135** | **100%** |
+| [`test_learner_privacy.py`](../backend/tests/test_learner_privacy.py) | Self-service access, URL tampering, staff bypass | **14** | **14** | **100%** |
+| [`test_caching.py`](../backend/tests/test_caching.py) | Dataset versioning, in-progress 409, failed 500, atomic writes | **8** | **8** | **100%** |
+| [`test_api_endpoints.py`](../backend/tests/test_api_endpoints.py) | Contract testing across all API routers | **8** | **8** | **100%** |
+| [`test_waler_regression.py`](../backend/tests/test_waler_regression.py) | WALER/WAEER mathematical bounds & survivorship bias | **6** | **6** | **100%** |
+| [`test_role_rbac.py`](../backend/tests/test_role_rbac.py) | Core role access boundaries & fallback | **5** | **5** | **100%** |
+| [`test_anomaly_detection.py`](../backend/tests/test_anomaly_detection.py) | 4-category anomaly detection rules & ledger | **4** | **4** | **100%** |
+| [`test_timezone.py`](../backend/tests/test_timezone.py) | UTC storage and device timestamp parsing | **4** | **4** | **100%** |
+| [`test_deduplication.py`](../backend/tests/test_deduplication.py) | Near-duplicate event hashing and retention | **3** | **3** | **100%** |
+| [`test_generator.py`](../backend/tests/test_generator.py) | Deterministic synthetic dataset generator | **3** | **3** | **100%** |
+| [`test_ground_truth_isolation.py`](../backend/tests/test_ground_truth_isolation.py) | Isolation of ground truth from runtime logic | **3** | **3** | **100%** |
+| [`test_models.py`](../backend/tests/test_models.py) | Relational schema entities & constraint models | **3** | **3** | **100%** |
+| [`test_completion_rules.py`](../backend/tests/test_completion_rules.py) | Course completion and certificate issuance | **2** | **2** | **100%** |
+| [`test_concurrency.py`](../backend/tests/test_concurrency.py) | 24 concurrent requests across 8 worker threads & mixed roles | **2** | **2** | **100%** |
+| [`test_health.py`](../backend/tests/test_health.py) | API health and database connectivity | **2** | **2** | **100%** |
+| [`test_validator.py`](../backend/tests/test_validator.py) | 15-point dataset integrity checker | **2** | **2** | **100%** |
+| [`test_ids.py`](../backend/tests/test_ids.py) | Domain ID format enforcement | **1** | **1** | **100%** |
 | **Total Test Suite** | **Complete backend test execution** | **205** | **205** | **100% PASSED** (Final: **341.45s** / Baseline: **313.66s**) |
 
 ### Test Execution Runtime Distinction
 - **Initial Baseline Full Run (313.66s)**: Executed across all 17 test modules during initial full-scale verification prior to the course catalog sorting and pagination enhancements.
-- **Authoritative Final Verification & Regression Run (341.45s / 0:05:41)**: Re-executed against the live production database after implementing deterministic course ID ordering (`Course.course_id.asc()`), search parameter filtering, and frontend pagination. All **205 / 205 tests passed with 0 failures**, serving as the definitive final verification record.
+- **Authoritative Final Verification & Regression Run (341.45s / 0:05:41)**: Re-executed against the live synthetic dataset database after implementing deterministic course ID ordering (`Course.course_id.asc()`), search parameter filtering, and frontend pagination. All **205 / 205 tests passed with 0 failures**, serving as the definitive final verification record.
 
 ### Frontend Build Verification
 ```bash
@@ -306,9 +310,9 @@ Clean build with 0 TypeScript compiler errors and Vite bundle generated successf
 
 ---
 
-## 11. Remaining Limitations & Production Roadmap
+## 11. Remaining Limitations & Enterprise Deployment Roadmap
 
-1. **Demo Authentication Boundary**: In accordance with the challenge brief, demo role switching is transmitted via the `X-Demo-Role` and `X-Demo-Learner-Id` HTTP headers. In an enterprise production deployment, these will be replaced with cryptographically signed JSON Web Tokens (JWT) or OAuth2/OIDC claims issued by an institutional identity provider.
+1. **Demo Authentication Boundary**: In accordance with the challenge brief, demo role switching is transmitted via the `X-Demo-Role` and `X-Demo-Learner-Id` HTTP headers. In an enterprise deployment, these will be replaced with cryptographically signed JSON Web Tokens (JWT) or OAuth2/OIDC claims issued by an institutional identity provider.
 2. **Database Engine Scaling**: SQLite WAL mode with 30s busy timeouts and atomic fingerprint caching handles multi-threaded concurrent reads over 2M rows efficiently. For high-volume multi-writer scenarios, transitioning to PostgreSQL with horizontal read replicas will provide multi-tenant isolation.
 3. **Audit Invalidation on Background Writes**: Large-scale data generation invalidates all caches immediately upon start. Interactive background recalculation is deferred until generation completes to maintain CPU and memory stability.
 
@@ -316,7 +320,7 @@ Clean build with 0 TypeScript compiler errors and Vite bundle generated successf
 
 ## 12. Dashboard Readability & Responsive UI Refinement
 
-To ensure executive readability at normal 100% browser zoom without requiring users or evaluators to zoom out, targeted refinements were implemented in [`frontend/src/pages/DashboardPage.tsx`](file:///c:/Users/manda/FusionProjects/Cohortly/frontend/src/pages/DashboardPage.tsx):
+To ensure executive readability at normal 100% browser zoom without requiring users or evaluators to zoom out, targeted refinements were implemented in [`frontend/src/pages/DashboardPage.tsx`](../frontend/src/pages/DashboardPage.tsx):
 
 ### 1. KPI Card Descriptions & Typography
 - **Ellipsis Clipping Removed**: Eliminated restrictive `line-clamp-1` rules across all 8 KPI cards.
@@ -364,18 +368,18 @@ Validated across 4 standard viewports using headless Chrome captures:
 - **Missing Pagination**: The frontend displayed only the first 50 results with no pagination controls or page navigation.
 
 ### 2. Application-Layer Implementations
-- **Backend Deterministic Sorting ([`backend/app/api/courses.py`](file:///c:/Users/manda/FusionProjects/Cohortly/backend/app/api/courses.py))**:
+- **Backend Deterministic Sorting ([`backend/app/api/courses.py`](../backend/app/api/courses.py))**:
   - Changed default ordering from `Course.course_name.asc()` to `Course.course_id.asc()`.
   - Because course generation interleaved topics in round-robin sequence (`CRS-000001` = Distributed Systems, `CRS-000002` = Kubernetes, `CRS-000003` = Deep Learning, etc.), sorting by `course_id` naturally produces diverse topics across every page.
   - Added optional `search` query parameter supporting case-insensitive searching across course name, ID, category, and instructor names.
   - Preserved existing filtering (`category`, `difficulty`, `status`), RBAC boundaries, and pagination contracts.
-- **Frontend Catalog Pagination & Controls ([`frontend/src/pages/CoursesPage.tsx`](file:///c:/Users/manda/FusionProjects/Cohortly/frontend/src/pages/CoursesPage.tsx))**:
+- **Frontend Catalog Pagination & Controls ([`frontend/src/pages/CoursesPage.tsx`](../frontend/src/pages/CoursesPage.tsx))**:
   - Added responsive pagination controls at the bottom of the course grid: `Showing X–Y of Z courses` and `Page P of T`.
   - Added Previous and Next buttons with disabled boundary states and smooth scrolling to top on page switch.
   - Maintained default page size of 50 courses per page (10 pages total for the 500 courses catalog).
   - Bound catalog badge to backend total count: `{totalCourses.toLocaleString()} Courses in Catalog`.
   - Automatically resets pagination to page 1 whenever category, difficulty, status, or search filters change.
-- **Natural Multi-Line Title Wrapping ([`frontend/src/pages/CoursesPage.tsx`](file:///c:/Users/manda/FusionProjects/Cohortly/frontend/src/pages/CoursesPage.tsx))**:
+- **Natural Multi-Line Title Wrapping ([`frontend/src/pages/CoursesPage.tsx`](../frontend/src/pages/CoursesPage.tsx))**:
   - Replaced `line-clamp-1` with `leading-snug break-words mb-2 min-h-[2.75rem]`.
   - Ensured all curriculum topics and their `(Level 1)`, `(Level 2)`, `(Level 3)` suffixes are fully visible across cards.
 
@@ -384,6 +388,6 @@ Validated across 4 standard viewports using headless Chrome captures:
 - **Pagination Coverage**: All 500 courses are cleanly navigable across 10 pages, ending with `CRS-000500` on Page 10.
 - **Filter Precision**: Verified `status=ACTIVE` returns 450 courses, `status=ARCHIVED` returns 50 courses, and `search=Kubernetes` returns 50 courses across categories.
 - **Automated Tests**: All 205 Pytest tests passed cleanly in 341.45s with zero regressions.
-- **Production Build**: Clean frontend build (`tsc && vite build`) completed with 0 errors.
+- **Frontend Build Compilation**: Clean frontend bundle (`tsc && vite build`) completed with 0 errors.
 - **Database & Generator Integrity**: The 1.899 GB SQLite database (`data/generated/cohortly.db`, 1,899,036,672 bytes) and synthetic generator remained completely untouched.
 

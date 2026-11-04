@@ -31,9 +31,9 @@ In accordance with Section 17 of the YottaFlex AI engineering challenge, this do
 
 ## 3. Human Review & Engineering Modifications (Known AI-Generated Errors & Corrections)
 
-During the iterative engineering process, the following critical design flaws were identified in the initial AI-proposed design and manually corrected:
+During iterative engineering review, testing, and validation, the following architectural flaws in initial AI-generated proposals were identified and corrected:
 
-| Ref # | Initial AI Proposal | Architectural Flaw Identified | Human Engineering Correction Implemented |
+| Ref # | Initial AI Proposal | Architectural Flaw Identified | Engineering Correction Implemented |
 |---|---|---|---|
 | **1** | Timezone anomaly detection flagged any event where `DATE(utc_timestamp) != event_date`. | **Incorrect logic**: A legitimate event occurring at 23:30 NY time naturally rolls into the next day in UTC without being an anomaly. | Changed detection logic to strictly compare stored `event_date` against `DATE(timezone_convert(event_timestamp_utc, source_timezone))`. |
 | **2** | Single exact-hash event deduplication that discarded duplicates. | **Data loss risk & missed retries**: Overlooked near-duplicate retries with slight timestamp differences. | Implemented two-tier strategy: Exact Duplicates (canonical retention + raw preservation) and Potential Near-Duplicates ($\le 5$s session retry window). |
@@ -60,24 +60,24 @@ During the iterative engineering process, the following critical design flaws we
 2. **Deterministic Bitwise Reproducibility Verification**:
    - Executed `scripts/reproduce.py` with seed `20261022` to assert bitwise identical SHA-256 checksums across all 13 relational tables in dual-generation runs.
 3. **Automated Testing**:
-   - Executed full 205-test Pytest matrix across 17 modules on Python 3.11 with zero mocked database responses (100% pass rate; authoritative final regression verification: 341.45s; initial baseline: 313.66s).
+   - Executed full 205-test Pytest matrix across 17 modules on Python 3.11 Executed the full 205-test Pytest suite across 17 modules, covering database-backed unit and integration tests.(100% pass rate; authoritative final regression verification: 341.45s; initial baseline: 313.66s).
 4. **End-to-End Full-Scale Verification**:
    - Verified the full-scale synthetic benchmark dataset (20,000 learners, 500 courses, 100,000 enrollments, 2,000,007 activity events, 127,610 attempts, 100,001 outcomes) with an actual file size of **1,899,036,672 bytes** (approximately 1.899 GB decimal / 1.77 GiB) in SQLite WAL mode.
    - Executed full 15-point cross-entity relational and lifecycle validation (`CHK-01` to `CHK-15`): 12 PASSED, 3 expected tracked WARNINGs (injected anomalies), 0 FAILED.
    - Verified FastAPI backend OpenAPI docs on port 8000 and React Vite frontend build (`tsc && vite build`) with 0 errors across all 8 core pages and 5 demo roles.
 5. **Decoupled Evaluation Benchmark**:
    - Confirmed 100% precision, 100% recall, and 1.0 F1 score (8 True Positives, 0 False Positives, 0 False Negatives) against the isolated ground-truth file (`data/ground_truth/anomalies.json`).
-   - This evaluation applies strictly to the **eight deliberately injected synthetic anomalies** across four categories (`DUPLICATE_ACTIVITY_EVENT`, `UNENROLLED_LEARNER_ACTIVITY`, `PREMATURE_COMPLETION`, `TIMEZONE_DATE_MISMATCH`). It validates detection rule isolation against known injected test cases, but is explicitly not evidence of 100% anomaly detection accuracy across noisy, unconstrained real-world LMS telemetry.
+   - This evaluation applies strictly to the **eight deliberately injected synthetic anomalies** across four categories (`DUPLICATE_ACTIVITY_EVENT`, `UNENROLLED_LEARNER_ACTIVITY`, `PREMATURE_COMPLETION`, `TIMEZONE_DATE_MISMATCH`). These results validate detection rule isolation against known injected test cases, but explicitly **do not establish real-world anomaly detection accuracy** across unconstrained, organic LMS telemetry.
 
 ---
 
 ## 5. Limitations
 
 1. **Client-Controlled Demo Authentication**:
-   - The `X-Demo-Role` and `X-Demo-Learner-Id` HTTP request headers are implemented strictly for evaluation convenience and local demonstration of RBAC capabilities. Because they can be arbitrarily set by the client, they do not constitute production-secure authentication. A production deployment requires cryptographically verified JSON Web Tokens (JWT) or OpenID Connect (OIDC) identity claims issued by an institutional identity provider.
+   - Demo authentication headers (`X-Demo-Role` and `X-Demo-Learner-Id`) are client-controlled and are not production-secure. They are provided strictly for local evaluation and demonstration of RBAC capabilities. In a production environment, user identity, permissions, and learner scopes must be derived exclusively from cryptographically signed, server-verified JWT or OIDC identity claims.
 2. **Database Engine Concurrency**:
-   - While SQLite configured with Write-Ahead Logging (WAL mode), connection pooling safeguards, and a 30-second busy timeout successfully supports multi-threaded concurrent reads, SQLite remains inherently limited to a single active writer. High-concurrency multi-writer production workloads require migrating to a client-server relational database such as PostgreSQL with horizontal read replicas.
+   - SQLite has limitations for high-concurrency, multi-writer production workloads. While SQLite configured with Write-Ahead Logging (WAL mode), connection pooling safeguards, and a 30-second busy timeout successfully supports multi-threaded concurrent reads, it remains inherently limited to a single active writer. High-concurrency multi-writer production workloads require migrating to a client-server relational database such as PostgreSQL with horizontal read replicas.
 3. **Synthetic Learner Data Scope**:
-   - All evaluations were conducted using deterministically generated synthetic telemetry. While the generator models realistic distributions for durations, assessment scores, and completion curves, real-world LMS environments feature noisy, unstructured interaction patterns (such as network drops, partial syncs, and forum engagements) that require additional empirical validation on organic production data.
+   - The project uses synthetic learner data, and further real-world validation would be necessary. While the generator models realistic distributions for durations, assessment scores, and completion curves, real-world LMS environments feature noisy, unstructured interaction patterns (such as network drops, partial syncs, and forum engagements) that require additional empirical validation on organic production data.
 
 
